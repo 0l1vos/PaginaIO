@@ -37,7 +37,6 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
-// Configuración CORS para el frontend
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("PermitirFrontend", policy =>

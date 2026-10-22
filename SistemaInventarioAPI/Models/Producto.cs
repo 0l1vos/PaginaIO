@@ -10,7 +10,9 @@ namespace SistemaInventarioAPI.Models
         public string NombreProducto { get; set; } = string.Empty;
         public string? Descripcion { get; set; }
         public int StockActual { get; set; }
-        public int CategoriaID { get; set; }
+        public string CategoriaID { get; set; }
+        public string? Location { get; set; }
+        public string Status { get; set; } = "Operativo";
         public DateTime FechaActualizacion { get; set; } = DateTime.Now;
     }
 }

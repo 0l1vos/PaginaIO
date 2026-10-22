@@ -1,1 +1,754 @@
-<h1 class="h1-prueba">Componente en desarrollo</h1>
+<div class="dashboard-layout">
+  <aside class="dashboard-sidebar" [class.collapsed]="!sidebarOpen">
+    <div class="sidebar-header">
+      <div class="brand-container">
+        <div class="brand-icon">
+          <span class="material-symbols-outlined">inventory_2</span>
+        </div>
+        @if (sidebarOpen) {
+        <div class="brand-text">
+          <h2>IO</h2>
+          <span class="brand-subtitle">Control de Inventario</span>
+        </div>
+        }
+      </div>
+      <button type="button" class="sidebar-toggle-btn" (click)="toggleSidebar()"
+        [attr.aria-label]="sidebarOpen ? 'Colapsar barra lateral' : 'Expandir barra lateral'">
+        <span class="material-symbols-outlined">
+          {{ sidebarOpen ? 'chevron_left' : 'chevron_right' }}
+        </span>
+      </button>
+    </div>
+
+    <nav class="sidebar-nav">
+
+      <div class="nav-section-label" *ngIf="sidebarOpen">VISTAS PRINCIPALES</div>
+      <ul class="nav-links">
+        <li class="active">
+          <a routerLink="/home" [matTooltip]="!sidebarOpen ? 'Inventario de Equipos' : ''">
+            <span class="material-symbols-outlined">devices</span>
+            @if (sidebarOpen) { <span>Inventario de Equipos</span> }
+            @if (sidebarOpen) {
+            <span class="nav-badge">{{ inventoryService.totalEquipos() }}</span>
+            }
+          </a>
+        </li>
+
+        @if (authService.isAdmin()) {
+        <li>
+          <a href="javascript:void(0)" (click)="openUserManagementModal()"
+            [matTooltip]="!sidebarOpen ? 'Gestión de Usuarios' : ''">
+            <span class="material-symbols-outlined">group</span>
+            @if (sidebarOpen) { <span>Gestión de Usuarios</span> }
+            @if (sidebarOpen) {
+            <span class="nav-badge admin-badge">{{ authService.allUsers().length }}</span>
+            }
+          </a>
+        </li>
+        }
+      </ul>
+
+
+    </nav>
+
+    <div class="sidebar-user-card" *ngIf="sidebarOpen">
+      <div class="user-avatar-circle" [class.admin-circle]="authService.isAdmin()">
+        {{ authService.isAdmin() ? 'AD' : 'US' }}
+      </div>
+      <div class="user-details">
+        <span class="user-name">{{ authService.currentUser()?.name || 'Usuario' }}</span>
+        <span class="user-role">{{ authService.currentUser()?.email || 'correo@ejemplo.com' }}</span>
+      </div>
+      <button type="button" class="btn-logout-mini" (click)="logout()" matTooltip="Cerrar sesión"
+        aria-label="Cerrar sesión">
+        <span class="material-symbols-outlined">logout</span>
+      </button>
+    </div>
+  </aside>
+
+  <main class="dashboard-main">
+    <header class="dashboard-topbar">
+      <div class="topbar-left">
+        <button type="button" class="mobile-menu-btn" (click)="toggleSidebar()" aria-label="Menú">
+          <span class="material-symbols-outlined">menu</span>
+        </button>
+        <div class="page-title">
+          <div class="title-with-badge">
+            <h1>Inventario General de Equipos</h1>
+            <span class="badge-role-pill" [class.admin]="authService.isAdmin()">
+              {{ authService.isAdmin() ? 'Administrador' : 'Consulta' }}
+            </span>
+          </div>
+          <p>Catálogo centralizado de activos tecnológicos, códigos SKU, descripción y estado operativo</p>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+
+
+        @if (authService.isAdmin()) {
+        <button type="button" class="action-primary-btn" (click)="openAddEquipmentModal()">
+          <span class="material-symbols-outlined">add_box</span>
+          <span>Registrar Equipo</span>
+        </button>
+
+        <button type="button" class="action-secondary-btn" (click)="openUserManagementModal()">
+          <span class="material-symbols-outlined">person_add</span>
+          <span>Usuarios</span>
+        </button>
+        } @else {
+        <div class="user-consult-badge">
+          <span class="material-symbols-outlined">info</span>
+          <span>Modo Consulta: Solo Lectura</span>
+        </div>
+        }
+      </div>
+    </header>
+
+    @if (feedbackMessage) {
+    <div class="toast-notification" [class.success]="feedbackMessage.type === 'success'"
+      [class.error]="feedbackMessage.type === 'error'">
+      <span class="material-symbols-outlined">
+        {{ feedbackMessage.type === 'success' ? 'check_circle' : 'error' }}
+      </span>
+      <span>{{ feedbackMessage.text }}</span>
+      <button type="button" class="toast-close" (click)="feedbackMessage = null">✕</button>
+    </div>
+    }
+
+    <div class="dashboard-content">
+      <section class="kpi-grid">
+        <div class="kpi-card total-card" (click)="setStatusFilter('Todos')">
+          <div class="kpi-body">
+            <div class="kpi-info">
+              <span class="kpi-label">TOTAL EQUIPOS EN INVENTARIO</span>
+              <h3 class="kpi-value">{{ inventoryService.totalEquipos() }}</h3>
+              <div class="kpi-sub">
+                <span class="material-symbols-outlined text-sm">qr_code</span>
+                <span>{{ inventoryService.categories().length }} categorías registradas</span>
+              </div>
+            </div>
+            <div class="kpi-icon-wrapper blue">
+              <span class="material-symbols-outlined">dns</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpi-card operational-card" (click)="setStatusFilter('Operativo')">
+          <div class="kpi-body">
+            <div class="kpi-info">
+              <span class="kpi-label">EQUIPOS OPERATIVOS</span>
+              <h3 class="kpi-value">{{ inventoryService.operativosCount() }}</h3>
+              <div class="kpi-sub text-green">
+                <span class="material-symbols-outlined text-sm">check_circle</span>
+                <span>{{ inventoryService.disponibilidadPorcentaje() }}% de disponibilidad</span>
+              </div>
+            </div>
+            <div class="kpi-icon-wrapper green">
+              <span class="material-symbols-outlined">task_alt</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpi-card maintenance-card" (click)="setStatusFilter('En Mantenimiento')">
+          <div class="kpi-body">
+            <div class="kpi-info">
+              <span class="kpi-label">EN MANTENIMIENTO</span>
+              <h3 class="kpi-value">{{ inventoryService.mantenimientoCount() }}</h3>
+              <div class="kpi-sub text-amber">
+                <span class="material-symbols-outlined text-sm">build</span>
+                <span>En revisión o reparacion</span>
+              </div>
+            </div>
+            <div class="kpi-icon-wrapper amber">
+              <span class="material-symbols-outlined">home_repair_service</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpi-card decommission-card" (click)="setStatusFilter('De Baja')">
+          <div class="kpi-body">
+            <div class="kpi-info">
+              <span class="kpi-label">BAJAS</span>
+              <h3 class="kpi-value">{{ inventoryService.bajaCount() }}</h3>
+              <div class="kpi-sub text-purple">
+                <span class="material-symbols-outlined text-sm">sync_alt</span>
+                <span>{{ inventoryService.bajaCount() }} dados de
+                  baja</span>
+              </div>
+            </div>
+            <div class="kpi-icon-wrapper purple">
+              <span class="material-symbols-outlined">transfer_within_a_station</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      @if (isBrowser) {
+      <section class="charts-main-grid">
+        <div class="chart-card">
+          <div class="card-header">
+            <div class="header-titles">
+              <h4>
+                <span class="material-symbols-outlined header-icon">pie_chart</span>
+                Distribución por Estado
+              </h4>
+              <p>Proporción actual de equipos según su condición operativa</p>
+            </div>
+          </div>
+          <div class="chart-canvas-container doughnut-container">
+            <canvas #statusChartRef height="220"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="card-header">
+            <div class="header-titles">
+              <h4>
+                <span class="material-symbols-outlined header-icon">bar_chart</span>
+                Equipos por Categoría
+              </h4>
+              <p>Distribución de inventario clasificado por tecnología</p>
+            </div>
+          </div>
+          <div class="chart-canvas-container">
+            <canvas #categoryChartRef height="220"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="card-header">
+            <div class="header-titles">
+              <h4>
+                <span class="material-symbols-outlined header-icon">show_chart</span>
+                Actividad & Mantenimientos
+              </h4>
+              <p>Evolución de equipos en inventario vs mantenimientos reportados</p>
+            </div>
+          </div>
+          <div class="chart-canvas-container">
+            <canvas #trendChartRef height="220"></canvas>
+          </div>
+        </div>
+      </section>
+      }
+
+      <section class="inventory-table-section">
+        <div class="data-table-card">
+          <div class="table-card-header">
+            <div>
+              <h3>Inventario de Equipos</h3>
+              <p>Consulta detallada de equipos, códigos SKU, especificaciones y estado operativo en tiempo real</p>
+            </div>
+
+            <div class="table-filter-pills">
+              <button type="button" class="filter-pill" [class.active]="selectedStatusFilter === 'Todos'"
+                (click)="setStatusFilter('Todos')">
+                Todos ({{ inventoryService.totalEquipos() }})
+              </button>
+              <button type="button" class="filter-pill success" [class.active]="selectedStatusFilter === 'Operativo'"
+                (click)="setStatusFilter('Operativo')">
+                Operativo ({{ inventoryService.operativosCount() }})
+              </button>
+              <button type="button" class="filter-pill warning"
+                [class.active]="selectedStatusFilter === 'En Mantenimiento'"
+                (click)="setStatusFilter('En Mantenimiento')">
+                En Mantenimiento ({{ inventoryService.mantenimientoCount() }})
+              </button>
+
+              <button type="button" class="filter-pill danger" [class.active]="selectedStatusFilter === 'De Baja'"
+                (click)="setStatusFilter('De Baja')">
+                De Baja ({{ inventoryService.bajaCount() }})
+              </button>
+            </div>
+          </div>
+
+          @if (!authService.isAdmin()) {
+          <div class="readonly-banner">
+            <span class="material-symbols-outlined">lock</span>
+            <span>
+              <strong>Sesión de Consulta Activa:</strong> Puedes buscar, filtrar y examinar la ficha técnica de
+              cualquier equipo. El registro, edición y bajas están reservados al Administrador.
+            </span>
+          </div>
+          }
+
+          <div class="table-responsive-wrapper">
+            <div class="search-box">
+              <span class="material-symbols-outlined search-icon">search</span>
+              <input type="text" [(ngModel)]="searchTerm"
+                placeholder="Buscar por SKU, nombre, descripción o estado..." />
+              @if (searchTerm) {
+              <button class="clear-search-btn" (click)="searchTerm = ''" aria-label="Limpiar búsqueda">
+                <span class="material-symbols-outlined">close</span>
+              </button>
+              }
+            </div>
+            <table class="modern-inventory-table">
+              <thead>
+                <tr>
+                  <th style="width: 140px;">CÓDIGO SKU</th>
+                  <th style="width: 220px;">EQUIPO & MODELO</th>
+                  <th style="width: 150px;">CATEGORÍA</th>
+                  <th>DESCRIPCIÓN TÉCNICA</th>
+                  <th style="width: 100px; text-align: center;">STOCK</th>
+                  <th style="width: 160px;">UBICACIÓN</th>
+                  <th style="width: 150px; text-align: center;">ESTADO</th>
+                  <th style="width: 130px; text-align: center;">ACCIONES</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of filteredEquipments; track item.productoID) {
+                <tr>
+                  <td>
+                    <div class="sku-cell" (click)="openEquipmentDetail(item)" matTooltip="Ver Ficha Técnica">
+                      <span class="material-symbols-outlined sku-icon">qr_code_2</span>
+                      <span class="sku-badge">{{ item.codigoSKU }}</span>
+                    </div>
+                  </td>
+
+                  <td>
+                    <div class="equipment-name-cell">
+                      <span class="eq-name">{{ item.nombreProducto }}</span>
+                    </div>
+                  </td>
+
+                  <td>
+                    <span class="category-chip">{{ getCategoryName(item.categoriaID) }}</span>
+                  </td>
+
+                  <td>
+                    <div class="description-cell" matTooltip="{{ item.descripcion }}">
+                      {{ item.descripcion }}
+                    </div>
+                  </td>
+
+                  <td style="text-align: center;">
+                    <strong>{{ item.stockActual }}</strong>
+                  </td>
+
+                  <td>
+                    <div class="location-cell">
+                      <span class="material-symbols-outlined location-icon">place</span>
+                      <span>{{ item.location || 'Sin ubicación' }}</span>
+                    </div>
+                  </td>
+
+                  <td style="text-align: center;">
+                    <span class="status-pill" [ngClass]="getStatusBadgeClass(item.status)">
+                      <span class="status-dot"></span>
+                      {{ item.status }}
+                    </span>
+                  </td>
+
+                  <td style="text-align: center;">
+                    <div class="row-actions">
+                      <button type="button" class="action-btn view" (click)="openEquipmentDetail(item)"
+                        matTooltip="Ver Ficha Técnica" aria-label="Ver Ficha">
+                        <span class="material-symbols-outlined">visibility</span>
+                      </button>
+
+                      @if (authService.isAdmin()) {
+                      <button type="button" class="action-btn edit" (click)="openEditEquipmentModal(item)"
+                        matTooltip="Editar / Cambiar Estado" aria-label="Editar">
+                        <span class="material-symbols-outlined">edit</span>
+                      </button>
+
+                      <button type="button" class="action-btn delete" (click)="deleteEquipment(item)"
+                        matTooltip="Eliminar del Inventario" aria-label="Eliminar">
+                        <span class="material-symbols-outlined">delete</span>
+                      </button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+                } @empty {
+                <tr>
+                  <td colspan="8" class="empty-state-cell">
+                    <div class="empty-state">
+                      <span class="material-symbols-outlined empty-icon">search_off</span>
+                      <h4>No se encontraron equipos</h4>
+                      <p>No hay activos que coincidan con "{{ searchTerm }}" o el filtro seleccionado.</p>
+                      <button type="button" class="btn-reset-filters"
+                        (click)="searchTerm = ''; selectedStatusFilter = 'Todos'">
+                        Restablecer Filtros
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-footer">
+            <span class="footer-count">
+              Mostrando <strong>{{ filteredEquipments.length }}</strong> de <strong>{{ inventoryService.totalEquipos()
+                }}</strong> equipos registrados
+            </span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+
+@if (showAddEquipmentModal) {
+<div class="modal-backdrop" (click)="closeAddEquipmentModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title-group">
+        <span class="material-symbols-outlined modal-header-icon">add_circle</span>
+        <div>
+          <h3>Registrar Nuevo Equipo en Inventario</h3>
+          <p>Ingresa el código SKU, especificaciones y estado operativo del activo</p>
+        </div>
+      </div>
+      <button type="button" class="modal-close-btn" (click)="closeAddEquipmentModal()">✕</button>
+    </div>
+
+    <form (ngSubmit)="submitAddEquipment()" class="modal-form">
+      <div class="form-row">
+        <div class="form-group flex-2">
+          <label for="newSku">Código SKU *</label>
+          <div class="input-with-action">
+            <input id="newSku" type="text" name="codigoSKU" [(ngModel)]="newEquipment.codigoSKU" required
+              placeholder="Ej. SKU-SRV-101" />
+            <button type="button" class="btn-sku-suggest" (click)="suggestSku()"
+              matTooltip="Generar sugerencia automática">
+              <span class="material-symbols-outlined icon-small">magic_button</span>
+              <span>Auto SKU</span>
+            </button>
+          </div>
+          <span class="field-hint">Código único de control de inventario</span>
+        </div>
+
+        <div class="form-group flex-2">
+          <label for="newStatus">Estado Inicial *</label>
+          <select id="newStatus" name="status" [(ngModel)]="newEquipment.status" required>
+            @for (st of statusOptions; track st) {
+            <option [value]="st">{{ st }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group flex-3">
+          <label for="newName">Nombre / Modelo del Equipo *</label>
+          <input id="newName" type="text" name="nombreProducto" [(ngModel)]="newEquipment.nombreProducto" required
+            placeholder="Ej. Dell PowerEdge R750 / Cisco Catalyst 9300" />
+        </div>
+
+        <div class="form-group flex-2">
+          <label for="newCategory">Categoría</label>
+          <select id="newCategory" name="categoriaID" [(ngModel)]="newEquipment.categoriaID" (change)="suggestSku()"
+            required>
+            @for (cat of categoryOption; track cat) {
+            <option [ngValue]="cat">{{ cat }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="newDescription">Descripción Técnica & Especificaciones *</label>
+        <textarea id="newDescription" name="descripcion" rows="3" [(ngModel)]="newEquipment.descripcion" required
+          placeholder="Especificaciones clave: procesador, memoria, puertos, capacidad de almacenamiento, etc."></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group flex-2">
+          <label for="newLocation">Ubicación Física</label>
+          <input id="newLocation" type="text" name="location" [(ngModel)]="newEquipment.location"
+            placeholder="Ej. Data Center Rack A3 / Lab Cómputo 1" />
+        </div>
+
+        <div class="form-group flex-2">
+          <label for="newStock">Stock Actual</label>
+          <input id="newStock" type="number" name="stockActual" [(ngModel)]="newEquipment.stockActual"
+            placeholder="Ej. 10" />
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" (click)="closeAddEquipmentModal()">
+          Cancelar
+        </button>
+        <button type="submit" class="btn-submit">
+          <span class="material-symbols-outlined icon-small">save</span>
+          Guardar Equipo
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+}
+
+@if (showEditEquipmentModal) {
+<div class="modal-backdrop" (click)="closeEditEquipmentModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title-group">
+        <span class="material-symbols-outlined modal-header-icon">edit_note</span>
+        <div>
+          <h3>Modificar Activo: {{ editEquipmentForm.codigoSKU }}</h3>
+          <p>Actualiza el estado operativo, descripción técnica o reubicación del equipo</p>
+        </div>
+      </div>
+      <button type="button" class="modal-close-btn" (click)="closeEditEquipmentModal()">✕</button>
+    </div>
+
+    <form (ngSubmit)="submitEditEquipment()" class="modal-form">
+      <div class="form-row">
+        <div class="form-group flex-2">
+          <label for="editSku">Código SKU</label>
+          <input id="editSku" type="text" name="codigoSKU" [(ngModel)]="editEquipmentForm.codigoSKU" required />
+        </div>
+
+        <div class="form-group flex-2">
+          <label for="editStatus">Estado Operativo *</label>
+          <select id="editStatus" name="status" [(ngModel)]="editEquipmentForm.status" required>
+            @for (st of statusOptions; track st) {
+            <option [value]="st">{{ st }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group flex-3">
+          <label for="editName">Nombre / Modelo</label>
+          <input id="editName" type="text" name="nombreProducto" [(ngModel)]="editEquipmentForm.nombreProducto"
+            required />
+        </div>
+
+        <div class="form-group flex-2">
+          <label for="editCategory">Categoría</label>
+          <select id="editCategory" name="categoriaID" [(ngModel)]="editEquipmentForm.categoriaID" required>
+            @for (cat of categoryOption; track cat) {
+            <option [ngValue]="cat">{{ cat }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="editDescription">Descripción Técnica</label>
+        <textarea id="editDescription" name="descripcion" rows="3" [(ngModel)]="editEquipmentForm.descripcion"
+          required></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group flex-2">
+          <label for="editLocation">Ubicación Actual</label>
+          <input id="editLocation" type="text" name="location" [(ngModel)]="editEquipmentForm.location" />
+        </div>
+
+        <div class="form-group flex-2">
+          <label for="editStock">Stock Actual</label>
+          <input id="editStock" type="number" name="stockActual" [(ngModel)]="editEquipmentForm.stockActual" />
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" (click)="closeEditEquipmentModal()">
+          Cancelar
+        </button>
+        <button type="submit" class="btn-submit">
+          <span class="material-symbols-outlined icon-small">check</span>
+          Actualizar Equipo
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+}
+
+@if (showUserManagementModal) {
+<div class="modal-backdrop" (click)="closeUserManagementModal()">
+  <div class="modal-card modal-wide" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title-group">
+        <span class="material-symbols-outlined modal-header-icon">admin_panel_settings</span>
+        <div>
+          <h3>Gestión de Usuarios & Control de Accesos</h3>
+          <p>Registra nuevos usuarios y define si tienen privilegios de Administrador o solo Consulta</p>
+        </div>
+      </div>
+      <button type="button" class="modal-close-btn" (click)="closeUserManagementModal()">✕</button>
+    </div>
+
+    <div class="user-management-body">
+      <div class="user-register-box">
+        <h4>
+          <span class="material-symbols-outlined">person_add</span>
+          Registrar Nuevo Usuario
+        </h4>
+        <form (ngSubmit)="submitRegisterUser()" class="user-form">
+          <div class="form-group">
+            <label for="newUserName">Nombre Completo</label>
+            <input id="newUserName" type="text" name="name" [(ngModel)]="newUserForm.name" required
+              placeholder="Ej. Ing. Daniel Ortiz" />
+          </div>
+
+          <div class="form-group">
+            <label for="newUserEmail">Correo Electrónico *</label>
+            <input id="newUserEmail" type="email" name="email" [(ngModel)]="newUserForm.email" required
+              placeholder="usuario@correo.com" />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group flex-2">
+              <label for="newUserRole">Tipo de Rol</label>
+              <select id="newUserRole" name="role" [(ngModel)]="newUserForm.role" required>
+                <option value="user">Usuario (Solo Consulta)</option>
+                <option value="admin">Administrador (Control Total)</option>
+              </select>
+            </div>
+
+            <div class="form-group flex-2">
+              <label for="newUserPassword">Contraseña Inicial</label>
+              <input id="newUserPassword" type="text" name="password" [(ngModel)]="newUserForm.password" required />
+            </div>
+          </div>
+
+          <button type="submit" class="btn-submit btn-block">
+            <span class="material-symbols-outlined icon-small">add</span>
+            Crear Usuario
+          </button>
+        </form>
+      </div>
+
+      <div class="user-list-box">
+        <h4>
+          <span class="material-symbols-outlined">group</span>
+          Usuarios Registrados ({{ authService.allUsers().length }})
+        </h4>
+        <div class="user-list-scroll">
+          <table class="user-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Correo</th>
+                <th>Rol</th>
+                <th>Fecha</th>
+                <th style="text-align: center;">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (u of authService.allUsers(); track u.id) {
+              <tr>
+                <td>
+                  <strong>{{ u.name }}</strong>
+                </td>
+                <td>{{ u.email }}</td>
+                <td>
+                  <span class="user-role-badge" [class.admin]="u.role === 'admin'">
+                    {{ u.role === 'admin' ? 'Admin' : 'Consulta' }}
+                  </span>
+                </td>
+                <td><small>{{ u.createdAt }}</small></td>
+                <td style="text-align: center;">
+                  @if (u.id !== authService.currentUser()?.id) {
+                  <button type="button" class="action-btn delete" (click)="deleteUser(u)" matTooltip="Eliminar Usuario">
+                    <span class="material-symbols-outlined">delete</span>
+                  </button>
+                  } @else {
+                  <small style="color: #64748b;">(Tú)</small>
+                  }
+                </td>
+              </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+}
+
+
+@if (showDetailModal && selectedEquipment) {
+<div class="modal-backdrop" (click)="closeDetailModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title-group">
+        <span class="material-symbols-outlined modal-header-icon">developer_board</span>
+        <div>
+          <h3>Ficha del Activo</h3>
+          <p>Información detallada registrada en el sistema de inventario</p>
+        </div>
+      </div>
+      <button type="button" class="modal-close-btn" (click)="closeDetailModal()">✕</button>
+    </div>
+
+    <div class="detail-body">
+      <div class="detail-hero">
+        <div class="detail-sku-box">
+          <span class="sku-label">CÓDIGO SKU</span>
+          <h2 class="sku-large">{{ selectedEquipment.codigoSKU }}</h2>
+        </div>
+        <div class="detail-status-box">
+          <span class="status-pill large" [ngClass]="getStatusBadgeClass(selectedEquipment.status)">
+            <span class="status-dot"></span>
+            {{ selectedEquipment.status }}
+          </span>
+        </div>
+      </div>
+
+      <div class="detail-grid">
+        <div class="detail-item">
+          <span class="detail-label">Nombre / Modelo</span>
+          <span class="detail-val bold">{{ selectedEquipment.nombreProducto }}</span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Categoría</span>
+          <span class="detail-val chip">{{ getCategoryName(selectedEquipment.categoriaID) }}</span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Ubicación Física</span>
+          <span class="detail-val">
+            <span class="material-symbols-outlined icon-small text-blue">place</span>
+            {{ selectedEquipment.location || 'Sin ubicación' }}
+          </span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Stock Actual</span>
+          <span class="detail-val mono">{{ selectedEquipment.stockActual }}</span>
+        </div>
+
+        <div class="detail-item full-width">
+          <span class="detail-label">Descripción Técnica & Especificaciones</span>
+          <div class="detail-desc-box">
+            {{ selectedEquipment.descripcion }}
+          </div>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Última Actualización</span>
+          <span class="detail-val">{{ selectedEquipment.fechaActualizacion }}</span>
+        </div>
+      </div>
+
+      <div class="modal-actions" style="margin-top: 1.5rem;">
+        @if (authService.isAdmin()) {
+        <button type="button" class="btn-submit"
+          (click)="closeDetailModal(); openEditEquipmentModal(selectedEquipment)">
+          <span class="material-symbols-outlined icon-small">edit</span>
+          Modificar este Equipo
+        </button>
+        }
+        <button type="button" class="btn-cancel" (click)="closeDetailModal()">
+          Cerrar Ficha
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+}
