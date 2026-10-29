@@ -333,3 +333,5 @@ C:\Users\olivo\Desktop\Ing.Software Avanzada\SistemaInventarioAPI\obj\Debug\net1
 C:\Users\olivo\Desktop\Ing.Software Avanzada\SistemaInventarioAPI\obj\Debug\net10.0\SistemaInventarioAPI.genruntimeconfig.cache
 C:\Users\olivo\Desktop\Ing.Software Avanzada\SistemaInventarioAPI\obj\Debug\net10.0\ref\SistemaInventarioAPI.dll
 C:\Users\olivo\Desktop\Ing.Software Avanzada\SistemaInventarioAPI\obj\Debug\net10.0\SistemaInventarioAPI.sourcelink.json
+C:\Users\olivo\Desktop\Ing.Software Avanzada\SistemaInventarioAPI\bin\Debug\net10.0\Npgsql.dll
+C:\Users\olivo\Desktop\Ing.Software Avanzada\SistemaInventarioAPI\bin\Debug\net10.0\Npgsql.EntityFrameworkCore.PostgreSQL.dll

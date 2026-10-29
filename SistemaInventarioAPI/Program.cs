@@ -9,7 +9,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("ConexionSQL")));
+    // Configuración de Npgsql para la base de datos PostgreSQL en Supabase
+    options.UseNpgsql(builder.Configuration.GetConnectionString("ConexionSQL")));
 
 var jwtClave = builder.Configuration["Jwt:Clave"]!;
 var jwtEmisor = builder.Configuration["Jwt:Emisor"]!;
@@ -59,6 +60,13 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+}
+
 
 app.UseCors("PermitirFrontend");
 app.UseAuthentication();
