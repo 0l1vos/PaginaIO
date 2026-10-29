@@ -15,22 +15,38 @@ export class Login {
   private router = inject(Router);
   private authService = inject(AuthService);
 
-  email = 'admin@correo.com';
-  password = 'password123';
+  email = '';
+  password = '';
   showPassword = false;
   errorMessage = '';
+  loading = false;
 
   togglePasswordVisibility(): void {
     this.showPassword = !this.showPassword;
   }
 
   onSubmit(): void {
-    this.errorMessage = '';
-    const success = this.authService.login(this.email, this.password);
-    if (success) {
-      this.router.navigate(['/home']);
-    } else {
-      this.errorMessage = 'Credenciales no válidas. Intenta de nuevo';
+    if (!this.email || !this.password) {
+      this.errorMessage = 'Por favor completa todos los campos.';
+      return;
     }
+
+    this.errorMessage = '';
+    this.loading = true;
+
+    this.authService.login(this.email, this.password).subscribe({
+      next: res => {
+        this.loading = false;
+        if (res.success) {
+          this.router.navigate(['/home']);
+        } else {
+          this.errorMessage = res.message;
+        }
+      },
+      error: err => {
+        this.loading = false;
+        this.errorMessage = err.error?.mensaje || 'Error al conectar con el servidor.';
+      },
+    });
   }
 }

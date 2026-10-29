@@ -9,12 +9,13 @@ import {
   ElementRef,
   signal,
   computed,
-  effect
+  effect,
+  ChangeDetectorRef
 } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-
+import { HttpClient } from '@angular/common/http';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule } from '@angular/material/paginator';
 import { MatSortModule } from '@angular/material/sort';
@@ -62,7 +63,8 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
   private router = inject(Router);
   public authService = inject(AuthService);
   public inventoryService = inject(InventoryService);
-
+  private http = inject(HttpClient);
+  private cdr = inject(ChangeDetectorRef);
   isBrowser = false;
   sidebarOpen = true;
 
@@ -130,9 +132,10 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
   } = {
       name: '',
       email: '',
-      password: 'password123',
+      password: '',
       role: 'user'
     };
+  usersList: any[] = [];
 
   feedbackMessage: { text: string; type: 'success' | 'error' } | null = null;
 
@@ -255,7 +258,7 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    this.inventoryService.addEquipment({
+    const payload = {
       codigoSKU: this.newEquipment.codigoSKU.trim(),
       nombreProducto: this.newEquipment.nombreProducto.trim(),
       descripcion: this.newEquipment.descripcion?.trim() || '',
@@ -263,31 +266,51 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
       location: this.newEquipment.location?.trim() || 'Almacén General',
       status: this.newEquipment.status,
       stockActual: Number(this.newEquipment.stockActual) || 0
-    });
+    };
 
-    this.showToast(`Equipo ${this.newEquipment.nombreProducto} registrado exitosamente.`, 'success');
-    this.closeAddEquipmentModal();
+    const request = this.inventoryService.addEquipment(payload) as any;
+
+    if (request && typeof request.subscribe === 'function') {
+      request.subscribe({
+        next: () => {
+          this.showToast(`Equipo ${this.newEquipment.nombreProducto} registrado exitosamente.`, 'success');
+          this.inventoryService.loadProductos();
+          this.closeAddEquipmentModal();
+        },
+        error: (err: any) => {
+          this.showToast('Error al registrar el equipo en el servidor.', 'error');
+          console.error(err);
+        }
+      });
+    } else {
+      this.showToast(`Equipo ${this.newEquipment.nombreProducto} registrado exitosamente.`, 'success');
+      this.closeAddEquipmentModal();
+    }
   }
 
-  openEditEquipmentModal(item: Equipment): void {
+  openEditEquipmentModal(item: any): void {
     if (!this.authService.isAdmin()) {
       this.showToast('Acceso denegado: solo administradores pueden modificar equipos.', 'error');
       return;
     }
+
     if (!item) {
       this.showToast('No se pudo cargar la información del equipo para editar.', 'error');
+      console.error('Item vacío en openEditEquipmentModal', item);
       return;
     }
+
     this.editEquipmentForm = {
-      productoID: item.productoID,
-      codigoSKU: item.codigoSKU,
-      nombreProducto: item.nombreProducto,
+      productoID: item.productoID || item.productoId || item.producto_id || 0,
+      codigoSKU: item.codigoSKU || item.codigoSku || item.codigo_sku || '',
+      nombreProducto: item.nombreProducto || item.nombre_producto || '',
       descripcion: item.descripcion || '',
-      categoriaID: item.categoriaID ? item.categoriaID.trim() : '',
+      categoriaID: item.categoriaID ? String(item.categoriaID).trim() : '',
       location: item.location || '',
-      status: item.status,
-      stockActual: item.stockActual
+      status: item.status || 'Operativo',
+      stockActual: Number(item.stockActual) || 0
     };
+
     this.showEditEquipmentModal = true;
   }
 
@@ -296,18 +319,39 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
   }
 
   submitEditEquipment(): void {
-    this.inventoryService.updateEquipment(this.editEquipmentForm.productoID, {
-      codigoSKU: this.editEquipmentForm.codigoSKU,
-      nombreProducto: this.editEquipmentForm.nombreProducto,
-      descripcion: this.editEquipmentForm.descripcion,
-      categoriaID: this.editEquipmentForm.categoriaID,
-      location: this.newEquipment.location?.trim() || 'Almacén General',
-      status: this.editEquipmentForm.status,
-      stockActual: Number(this.newEquipment.stockActual) || 0
-    });
+    if (!this.editEquipmentForm.codigoSKU.trim() || !this.editEquipmentForm.nombreProducto.trim()) {
+      this.showToast('Por favor completa el código SKU y el nombre del equipo.', 'error');
+      return;
+    }
 
-    this.showToast('Equipo actualizado correctamente.', 'success');
-    this.closeEditEquipmentModal();
+    const payload = {
+      codigoSKU: this.editEquipmentForm.codigoSKU.trim(),
+      nombreProducto: this.editEquipmentForm.nombreProducto.trim(),
+      descripcion: this.editEquipmentForm.descripcion?.trim() || '',
+      categoriaID: this.editEquipmentForm.categoriaID,
+      location: this.editEquipmentForm.location?.trim() || 'Almacén General',
+      status: this.editEquipmentForm.status,
+      stockActual: Number(this.editEquipmentForm.stockActual) || 0
+    };
+
+    const request = this.inventoryService.updateEquipment(this.editEquipmentForm.productoID, payload) as any;
+
+    if (request && typeof request.subscribe === 'function') {
+      request.subscribe({
+        next: () => {
+          this.showToast('Equipo actualizado correctamente.', 'success');
+          this.inventoryService.loadProductos();
+          this.closeEditEquipmentModal();
+        },
+        error: (err: any) => {
+          this.showToast('Error al actualizar el equipo.', 'error');
+          console.error(err);
+        }
+      });
+    } else {
+      this.showToast('Equipo actualizado correctamente.', 'success');
+      this.closeEditEquipmentModal();
+    }
   }
 
   quickChangeStatus(item: Equipment, newStatus: EquipmentStatus): void {
@@ -332,13 +376,22 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
       this.showToast('Acceso denegado: solo administradores pueden gestionar usuarios.', 'error');
       return;
     }
-    this.newUserForm = {
-      name: '',
-      email: '',
-      password: 'password123',
-      role: 'user'
-    };
+    this.newUserForm = { name: '', email: '', password: '', role: 'user' };
     this.showUserManagementModal = true;
+    this.loadUsers();
+  }
+
+  loadUsers(): void {
+    this.http.get<any[]>('http://localhost:5138/api/sesion/usuarios').subscribe({
+      next: (res) => {
+        this.usersList = res;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error al cargar usuarios', err);
+        this.showToast('No se pudo cargar la lista de usuarios', 'error');
+      }
+    });
   }
 
   closeUserManagementModal(): void {
@@ -346,35 +399,59 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
   }
 
   submitRegisterUser(): void {
-    if (!this.newUserForm.name.trim() || !this.newUserForm.email.trim()) {
-      this.showToast('Por favor ingresa nombre y correo para el nuevo usuario.', 'error');
+    if (!this.newUserForm.name.trim() || !this.newUserForm.email.trim() || !this.newUserForm.password.trim()) {
+      this.showToast('Por favor ingresa nombre, correo y contraseña para el nuevo usuario.', 'error');
       return;
     }
-    const res = this.authService.registerUser(this.newUserForm);
-    if (res.success) {
-      this.showToast(res.message, 'success');
-      this.newUserForm.name = '';
-      this.newUserForm.email = '';
-      this.newUserForm.password = 'password123';
-      this.newUserForm.role = 'user';
-    } else {
-      this.showToast(res.message, 'error');
-    }
+
+    const payload = {
+      nombreUsuario: this.newUserForm.name.trim(),
+      correo: this.newUserForm.email.trim(),
+      contrasena: this.newUserForm.password,
+      rolID: this.newUserForm.role === 'admin' ? 1 : 2
+    };
+
+    this.http.post('http://localhost:5138/api/sesion/registro', payload).subscribe({
+      next: () => {
+        this.showToast(`Usuario ${this.newUserForm.name} registrado con éxito.`, 'success');
+        this.closeUserManagementModal();
+      },
+      error: (err) => {
+        const mensajeError = err.error?.mensaje || 'Error al conectar con el servidor';
+        this.showToast(mensajeError, 'error');
+        console.error(err);
+      }
+    });
   }
 
-  deleteUser(user: UserAccount): void {
-    if (confirm(`¿Eliminar al usuario ${user.name}?`)) {
-      const res = this.authService.deleteUser(user.id);
-      if (res.success) {
-        this.showToast(res.message, 'success');
-      } else {
-        this.showToast(res.message, 'error');
-      }
+  deleteUser(user: any): void {
+    const currentUser = this.authService.currentUser();
+    if (currentUser && user.email === currentUser.email) {
+      this.showToast('Acción denegada: No puedes eliminar tu propia cuenta mientras estás en sesión.', 'error');
+      return;
+    }
+
+    if (confirm(`¿Estás seguro de eliminar permanentemente al usuario "${user.nombre}"? Esta acción no se puede deshacer.`)) {
+
+      this.http.delete(`http://localhost:5138/api/sesion/usuarios/${user.usuarioID}`).subscribe({
+        next: () => {
+          this.showToast(`Usuario ${user.nombre} eliminado correctamente.`, 'success');
+          this.loadUsers();
+        },
+        error: (err) => {
+          console.error('Error al eliminar usuario', err);
+          this.showToast('Error al intentar eliminar el usuario del servidor.', 'error');
+        }
+      });
     }
   }
 
   logout(): void {
     this.authService.logout();
+
+    localStorage.clear();
+    sessionStorage.clear();
+
     this.router.navigate(['/']);
   }
 
