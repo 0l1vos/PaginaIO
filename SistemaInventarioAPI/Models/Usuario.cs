@@ -1,17 +1,28 @@
-
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace SistemaInventarioAPI.Models
 {
+    [Table("usuarios")]
     public class Usuario
     {
+        [Key]
+        [Column("usuario_id")]
+        public int UsuarioID { get; set; }
 
-        [Key]    
-        public int UserID { get; set; } 
-        public string NombreUsuario { get; set; } = string.Empty;
-        public string Correo { get; set; } = string.Empty;
-        public string ContrasenaHash { get; set; } = string.Empty;
-        public int RolID { get; set; }
-        public bool Activo { get; set; } = true;
-        public DateTime FechaCreacion { get; set; } = DateTime.Now;
+        [Column("nombre")]
+        public string Nombre { get; set; } = string.Empty;
+
+        [Column("email")]
+        public string Email { get; set; } = string.Empty;
+
+        [Column("password_hash")]
+        public string PasswordHash { get; set; } = string.Empty;
+
+        [Column("role")]
+        public string Role { get; set; } = "user";
+
+        [Column("fecha_creacion")]
+        public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
     }
 }

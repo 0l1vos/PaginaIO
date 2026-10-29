@@ -32,12 +32,12 @@ namespace SistemaInventarioAPI.Controllers
                 return BadRequest(ModelState);
 
             var usuario = await _context.Usuarios
-                .FirstOrDefaultAsync(u => u.Correo == loginDto.Correo && u.Activo == true);
+                .FirstOrDefaultAsync(u => u.Email == loginDto.Email);
 
             if (usuario == null)
                 return Unauthorized(new { mensaje = "Credenciales inválidas" });
 
-            if (!VerificarContrasena(loginDto.Contrasena, usuario.ContrasenaHash))
+            if (!VerificarContrasena(loginDto.Contrasena, usuario.PasswordHash))
                 return Unauthorized(new { mensaje = "Credenciales inválidas" });
 
             var token = GenerarToken(usuario);
@@ -47,9 +47,9 @@ namespace SistemaInventarioAPI.Controllers
             return Ok(new LoginResponseDTO
             {
                 Token = token,
-                NombreUsuario = usuario.NombreUsuario,
-                Correo = usuario.Correo,
-                RolID = usuario.RolID,
+                NombreUsuario = usuario.Nombre,
+                Email = usuario.Email,
+                Rol = usuario.Role,
                 Expiracion = expiracion
             });
         }
@@ -61,27 +61,25 @@ namespace SistemaInventarioAPI.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-       
             var existeCorreo = await _context.Usuarios
-                .AnyAsync(u => u.Correo == registroDto.Correo);
+                .AnyAsync(u => u.Email == registroDto.Correo);
 
             if (existeCorreo)
                 return Conflict(new { mensaje = "El correo ya está registrado" });
 
             var existeNombre = await _context.Usuarios
-                .AnyAsync(u => u.NombreUsuario == registroDto.NombreUsuario);
+                .AnyAsync(u => u.Nombre == registroDto.NombreUsuario);
 
             if (existeNombre)
                 return Conflict(new { mensaje = "El nombre de usuario ya está en uso" });
 
             var usuario = new Usuario
             {
-                NombreUsuario = registroDto.NombreUsuario,
-                Correo = registroDto.Correo,
-                ContrasenaHash = HashContrasena(registroDto.Contrasena),
-                RolID = registroDto.RolID ?? 2,
-                Activo = true,
-                FechaCreacion = DateTime.Now
+                Nombre = registroDto.NombreUsuario,
+                Email = registroDto.Correo,
+                PasswordHash = HashContrasena(registroDto.Contrasena),
+                Role = registroDto.RolID.HasValue && registroDto.RolID.Value == 1 ? "admin" : "user",
+                FechaCreacion = DateTime.UtcNow
             };
 
             _context.Usuarios.Add(usuario);
@@ -94,7 +92,6 @@ namespace SistemaInventarioAPI.Controllers
         [HttpPost("validar-token")]
         public ActionResult ValidarToken()
         {
-            
             var authHeader = Request.Headers["Authorization"].FirstOrDefault();
             if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
                 return Unauthorized(new { valido = false, mensaje = "Token no proporcionado" });
@@ -127,14 +124,48 @@ namespace SistemaInventarioAPI.Controllers
             }
         }
 
+        // GET: api/sesion/usuarios
+        [HttpGet("usuarios")]
+        public async Task<ActionResult> GetUsuarios()
+        {
+            var usuarios = await _context.Usuarios
+                .Select(u => new
+                {
+                    u.UsuarioID,
+                    Nombre = u.Nombre,
+                    Email = u.Email,
+                    Role = u.Role,
+                    FechaCreacion = u.FechaCreacion
+                })
+                .ToListAsync();
+
+            return Ok(usuarios);
+        }
+
+
+        // DELETE: api/sesion/usuarios/{id}
+        [HttpDelete("usuarios/{id}")]
+        public async Task<ActionResult> EliminarUsuario(int id)
+        {
+            var usuario = await _context.Usuarios.FindAsync(id);
+            if (usuario == null)
+                return NotFound(new { mensaje = "Usuario no encontrado" });
+
+            _context.Usuarios.Remove(usuario);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { mensaje = "Usuario eliminado exitosamente" });
+        }
+        
+
         private string GenerarToken(Usuario usuario)
         {
             var claims = new[]
             {
-                new Claim(ClaimTypes.NameIdentifier, usuario.UserID.ToString()),
-                new Claim(ClaimTypes.Name, usuario.NombreUsuario),
-                new Claim(ClaimTypes.Email, usuario.Correo),
-                new Claim(ClaimTypes.Role, usuario.RolID.ToString())
+                new Claim(ClaimTypes.NameIdentifier, usuario.UsuarioID.ToString()),
+                new Claim(ClaimTypes.Name, usuario.Nombre),
+                new Claim(ClaimTypes.Email, usuario.Email),
+                new Claim(ClaimTypes.Role, usuario.Role)
             };
 
             var key = new SymmetricSecurityKey(

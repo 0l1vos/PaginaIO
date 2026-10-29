@@ -1,4 +1,8 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
+import { Observable, of } from 'rxjs';
+import { map, catchError } from 'rxjs/operators';
 
 export type UserRole = 'admin' | 'user';
 
@@ -6,107 +10,93 @@ export interface UserAccount {
   id: string;
   name: string;
   email: string;
-  password?: string;
   role: UserRole;
   createdAt: string;
 }
 
-@Injectable({
-  providedIn: 'root'
-})
-export class AuthService {
-  private usersList = signal<UserAccount[]>([
-    {
-      id: 'USR-001',
-      name: 'Admin(Admin)',
-      email: 'admin@correo.com',
-      password: 'password123',
-      role: 'admin',
-      createdAt: '2026-01-10'
-    },
-    {
-      id: 'USR-002',
-      name: 'User (Consulta)',
-      email: 'usuario@correo.com',
-      password: 'password123',
-      role: 'user',
-      createdAt: '2026-02-15'
-    }
-  ]);
+export interface LoginResponse {
+  token: string;
+  nombreUsuario: string;
+  correo: string;
+  role: string;
+  expiracion: string;
+}
 
-  private currentUserState = signal<UserAccount | null>(this.usersList()[0]); // Por defecto admin
+@Injectable({ providedIn: 'root' })
+export class AuthService {
+  private readonly apiUrl = 'http://localhost:5138/api/sesion';
+  private readonly tokenKey = 'auth_token';
+  private readonly platformId = inject(PLATFORM_ID);
+  private readonly isBrowser = isPlatformBrowser(this.platformId);
+
+  private currentUserState = signal<UserAccount | null>(null);
 
   readonly currentUser = this.currentUserState.asReadonly();
-  readonly allUsers = this.usersList.asReadonly();
 
   readonly isAdmin = computed(() => this.currentUserState()?.role === 'admin');
-
   readonly isUser = computed(() => this.currentUserState()?.role === 'user');
+  readonly isLoggedIn = computed(() => this.currentUserState() !== null);
 
+  constructor(private http: HttpClient) {
+    this.restoreSession();
+  }
 
-  login(email: string, pass: string): boolean {
-    const found = this.usersList().find(
-      u => u.email.toLowerCase() === email.toLowerCase().trim() && u.password === pass
+  login(email: string, password: string): Observable<{ success: boolean; message: string }> {
+    const payload = { email: email.trim(), contrasena: password };
+
+    return this.http.post<LoginResponse>(`${this.apiUrl}/login`, payload).pipe(
+      map(res => {
+        const roleString = (res as any).role || (res as any).rol || 'user';
+        const userRole: UserRole = roleString.toLowerCase() === 'admin' ? 'admin' : 'user';
+
+        const user: UserAccount = {
+          id: '',
+          name: res.nombreUsuario,
+          email: res.correo,
+          role: userRole,
+          createdAt: new Date().toISOString(),
+        };
+
+        this.currentUserState.set(user);
+        if (this.isBrowser) {
+          localStorage.setItem(this.tokenKey, res.token);
+          localStorage.setItem('auth_user', JSON.stringify(user));
+        }
+        return { success: true, message: 'Inicio de sesión exitoso' };
+      }),
+      catchError(err => {
+        const mensaje =
+          err.status === 401
+            ? 'Credenciales no válidas. Intenta de nuevo.'
+            : err.error?.mensaje || 'Error al conectar con el servidor. Verifica tu conexión.';
+        return of({ success: false, message: mensaje });
+      })
     );
-
-    if (found) {
-      this.currentUserState.set(found);
-      return true;
-    }
-    return false;
   }
-
-  switchRole(targetRole: UserRole): void {
-    const target = this.usersList().find(u => u.role === targetRole);
-    if (target) {
-      this.currentUserState.set(target);
-    } else {
-      const current = this.currentUserState();
-      if (current) {
-        this.currentUserState.set({ ...current, role: targetRole });
-      }
-    }
-  }
-
-  registerUser(user: { name: string; email: string; password?: string; role: UserRole }): { success: boolean; message: string } {
-    if (!this.isAdmin()) {
-      return { success: false, message: 'Acceso denegado: solo administradores pueden registrar usuarios.' };
-    }
-
-    const emailExists = this.usersList().some(u => u.email.toLowerCase() === user.email.toLowerCase().trim());
-    if (emailExists) {
-      return { success: false, message: 'El correo electrónico ya se encuentra registrado.' };
-    }
-
-    const newId = `USR-00${this.usersList().length + 1}`;
-    const newUser: UserAccount = {
-      id: newId,
-      name: user.name.trim(),
-      email: user.email.toLowerCase().trim(),
-      password: user.password || 'password123',
-      role: user.role,
-      createdAt: new Date().toISOString().split('T')[0]
-    };
-
-    this.usersList.update(list => [newUser, ...list]);
-    return { success: true, message: `Usuario ${newUser.name} registrado con éxito con rol ${newUser.role}.` };
-  }
-
-
-  deleteUser(userId: string): { success: boolean; message: string } {
-    if (!this.isAdmin()) {
-      return { success: false, message: 'Solo administradores pueden eliminar usuarios.' };
-    }
-    const current = this.currentUserState();
-    if (current && current.id === userId) {
-      return { success: false, message: 'No puedes eliminar tu propio usuario activo.' };
-    }
-    this.usersList.update(list => list.filter(u => u.id !== userId));
-    return { success: true, message: 'Usuario eliminado del sistema.' };
-  }
-
 
   logout(): void {
     this.currentUserState.set(null);
+    if (this.isBrowser) {
+      localStorage.removeItem(this.tokenKey);
+      localStorage.removeItem('auth_user');
+    }
+  }
+
+  getToken(): string | null {
+    return this.isBrowser ? localStorage.getItem(this.tokenKey) : null;
+  }
+
+  private restoreSession(): void {
+    if (!this.isBrowser) return;
+    const token = localStorage.getItem(this.tokenKey);
+    const userRaw = localStorage.getItem('auth_user');
+    if (token && userRaw) {
+      try {
+        const user: UserAccount = JSON.parse(userRaw);
+        this.currentUserState.set(user);
+      } catch {
+        this.logout();
+      }
+    }
   }
 }
