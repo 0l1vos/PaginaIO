@@ -7,10 +7,9 @@ import {
   PLATFORM_ID,
   ViewChild,
   ElementRef,
-  signal,
-  computed,
+  ChangeDetectorRef,
   effect,
-  ChangeDetectorRef
+  HostListener
 } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -32,7 +31,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { Chart, registerables } from 'chart.js';
 Chart.register(...registerables);
 
-import { AuthService, UserAccount, UserRole } from '../../services/auth.service';
+import { AuthService, UserRole } from '../../services/auth.service';
 import { InventoryService, Equipment, EquipmentStatus } from '../../services/inventory.service';
 
 @Component({
@@ -65,11 +64,25 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
   public inventoryService = inject(InventoryService);
   private http = inject(HttpClient);
   private cdr = inject(ChangeDetectorRef);
+
   isBrowser = false;
+  isMobile = false;
   sidebarOpen = true;
 
   searchTerm = '';
   selectedStatusFilter: EquipmentStatus | 'Todos' = 'Todos';
+  selectedCategoryFilter = 'Todas';
+  sortBy:
+    | 'recent'
+    | 'sku-asc'
+    | 'sku-desc'
+    | 'name-asc'
+    | 'name-desc'
+    | 'cat-asc'
+    | 'cat-desc'
+    | 'stock-asc'
+    | 'stock-desc' = 'recent';
+  viewMode: 'table' | 'cards' = 'table';
 
   @ViewChild('statusChartRef') statusChartRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('categoryChartRef') categoryChartRef!: ElementRef<HTMLCanvasElement>;
@@ -135,8 +148,8 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
       password: '',
       role: 'user'
     };
-  usersList: any[] = [];
 
+  usersList: any[] = [];
   feedbackMessage: { text: string; type: 'success' | 'error' } | null = null;
 
   readonly categoryOption: string[] = [
@@ -147,7 +160,6 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
     'Monitores',
     'Impresoras',
     'Otros'
-
   ];
 
   readonly statusOptions: EquipmentStatus[] = [
@@ -155,6 +167,8 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
     'En Mantenimiento',
     'De Baja'
   ];
+
+  private onResizeBound = () => this.checkScreenSize();
 
   constructor() {
     effect(() => {
@@ -167,6 +181,10 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnInit(): void {
     this.isBrowser = isPlatformBrowser(this.platformId);
+    if (this.isBrowser) {
+      this.checkScreenSize();
+      window.addEventListener('resize', this.onResizeBound);
+    }
     this.inventoryService.loadProductos();
   }
 
@@ -179,21 +197,41 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.isBrowser) {
+      window.removeEventListener('resize', this.onResizeBound);
+    }
     this.destroyCharts();
   }
 
+  checkScreenSize(): void {
+    if (!this.isBrowser) return;
+    const mobile = window.innerWidth <= 900;
+    if (mobile !== this.isMobile) {
+      this.isMobile = mobile;
+      this.sidebarOpen = !mobile;
+      if (window.innerWidth <= 640) {
+        this.viewMode = 'cards';
+      }
+      this.cdr.detectChanges();
+    }
+  }
+
   getCategoryName(categoriaID: string): string {
-    return categoriaID || `Sin Categoría`;
+    return categoriaID || 'Sin Categoría';
   }
 
   get filteredEquipments(): Equipment[] {
     const list = this.inventoryService.equipments();
     const term = this.searchTerm.toLowerCase().trim();
     const status = this.selectedStatusFilter;
+    const category = this.selectedCategoryFilter;
 
-    return list.filter(item => {
+    let result = list.filter(item => {
       const matchesStatus = status === 'Todos' || item.status === status;
       if (!matchesStatus) return false;
+
+      const matchesCategory = category === 'Todas' || item.categoriaID === category;
+      if (!matchesCategory) return false;
 
       if (!term) return true;
 
@@ -202,19 +240,98 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
         item.nombreProducto.toLowerCase().includes(term) ||
         (item.descripcion || '').toLowerCase().includes(term) ||
         (item.location || '').toLowerCase().includes(term) ||
+        (item.categoriaID || '').toLowerCase().includes(term) ||
         item.status.toLowerCase().includes(term)
       );
     });
+
+    switch (this.sortBy) {
+      case 'sku-asc':
+        result = [...result].sort((a, b) => a.codigoSKU.localeCompare(b.codigoSKU));
+        break;
+      case 'sku-desc':
+        result = [...result].sort((a, b) => b.codigoSKU.localeCompare(a.codigoSKU));
+        break;
+      case 'name-asc':
+        result = [...result].sort((a, b) => a.nombreProducto.localeCompare(b.nombreProducto));
+        break;
+      case 'name-desc':
+        result = [...result].sort((a, b) => b.nombreProducto.localeCompare(a.nombreProducto));
+        break;
+      case 'cat-asc':
+        result = [...result].sort((a, b) => (a.categoriaID || '').localeCompare(b.categoriaID || ''));
+        break;
+      case 'cat-desc':
+        result = [...result].sort((a, b) => (b.categoriaID || '').localeCompare(a.categoriaID || ''));
+        break;
+      case 'stock-desc':
+        result = [...result].sort((a, b) => b.stockActual - a.stockActual);
+        break;
+      case 'stock-asc':
+        result = [...result].sort((a, b) => a.stockActual - b.stockActual);
+        break;
+      case 'recent':
+      default:
+        break;
+    }
+
+    return result;
+  }
+
+  get activeFiltersCount(): number {
+    let count = 0;
+    if (this.searchTerm.trim()) count++;
+    if (this.selectedStatusFilter !== 'Todos') count++;
+    if (this.selectedCategoryFilter !== 'Todas') count++;
+    if (this.sortBy !== 'recent') count++;
+    return count;
+  }
+
+  setSortColumn(column: 'sku' | 'name' | 'stock' | 'category'): void {
+    if (column === 'sku') {
+      this.sortBy = this.sortBy === 'sku-asc' ? 'sku-desc' : 'sku-asc';
+    } else if (column === 'name') {
+      this.sortBy = this.sortBy === 'name-asc' ? 'name-desc' : 'name-asc';
+    } else if (column === 'stock') {
+      this.sortBy = this.sortBy === 'stock-desc' ? 'stock-asc' : 'stock-desc';
+    } else if (column === 'category') {
+      this.sortBy = this.sortBy === 'cat-asc' ? 'cat-desc' : 'cat-asc';
+    }
+  }
+
+  @HostListener('window:keydown.escape')
+  handleEscapeKey(): void {
+    if (this.showDetailModal) {
+      this.closeDetailModal();
+    } else if (this.showAddEquipmentModal) {
+      this.closeAddEquipmentModal();
+    } else if (this.showEditEquipmentModal) {
+      this.closeEditEquipmentModal();
+    } else if (this.showUserManagementModal) {
+      this.closeUserManagementModal();
+    }
   }
 
   toggleSidebar(): void {
     this.sidebarOpen = !this.sidebarOpen;
   }
 
+  closeMobileSidebar(): void {
+    if (this.isMobile) {
+      this.sidebarOpen = false;
+    }
+  }
+
   setStatusFilter(status: EquipmentStatus | 'Todos'): void {
     this.selectedStatusFilter = status;
   }
 
+  clearFilters(): void {
+    this.searchTerm = '';
+    this.selectedStatusFilter = 'Todos';
+    this.selectedCategoryFilter = 'Todas';
+    this.sortBy = 'recent';
+  }
 
   openEquipmentDetail(item: Equipment): void {
     this.selectedEquipment = item;
@@ -232,13 +349,13 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.newEquipment = {
-      codigoSKU: this.inventoryService.generateSkuSuggestion('Servidores & Rack'),
+      codigoSKU: this.inventoryService.generateSkuSuggestion('Servidores'),
       nombreProducto: '',
       descripcion: '',
-      categoriaID: '',
+      categoriaID: 'Servidores',
       location: '',
       status: 'Operativo',
-      stockActual: 0
+      stockActual: 1
     };
     this.showAddEquipmentModal = true;
   }
@@ -248,7 +365,7 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
   }
 
   suggestSku(): void {
-    const catName = this.newEquipment.categoriaID;
+    const catName = this.newEquipment.categoriaID || 'Otros';
     this.newEquipment.codigoSKU = this.inventoryService.generateSkuSuggestion(catName);
   }
 
@@ -263,7 +380,7 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
       nombreProducto: this.newEquipment.nombreProducto.trim(),
       descripcion: this.newEquipment.descripcion?.trim() || '',
       categoriaID: this.newEquipment.categoriaID,
-      location: this.newEquipment.location?.trim() || 'Almacén General',
+      location: this.newEquipment.location?.trim() || 'Almacén Central',
       status: this.newEquipment.status,
       stockActual: Number(this.newEquipment.stockActual) || 0
     };
@@ -273,7 +390,7 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
     if (request && typeof request.subscribe === 'function') {
       request.subscribe({
         next: () => {
-          this.showToast(`Equipo ${this.newEquipment.nombreProducto} registrado exitosamente.`, 'success');
+          this.showToast(`Equipo "${this.newEquipment.nombreProducto}" registrado exitosamente.`, 'success');
           this.inventoryService.loadProductos();
           this.closeAddEquipmentModal();
         },
@@ -283,7 +400,7 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
         }
       });
     } else {
-      this.showToast(`Equipo ${this.newEquipment.nombreProducto} registrado exitosamente.`, 'success');
+      this.showToast(`Equipo "${this.newEquipment.nombreProducto}" registrado exitosamente.`, 'success');
       this.closeAddEquipmentModal();
     }
   }
@@ -296,7 +413,6 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
 
     if (!item) {
       this.showToast('No se pudo cargar la información del equipo para editar.', 'error');
-      console.error('Item vacío en openEditEquipmentModal', item);
       return;
     }
 
@@ -305,7 +421,7 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
       codigoSKU: item.codigoSKU || item.codigoSku || item.codigo_sku || '',
       nombreProducto: item.nombreProducto || item.nombre_producto || '',
       descripcion: item.descripcion || '',
-      categoriaID: item.categoriaID ? String(item.categoriaID).trim() : '',
+      categoriaID: item.categoriaID ? String(item.categoriaID).trim() : 'Servidores',
       location: item.location || '',
       status: item.status || 'Operativo',
       stockActual: Number(item.stockActual) || 0
@@ -325,11 +441,12 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const payload = {
+      productoID: this.editEquipmentForm.productoID,
       codigoSKU: this.editEquipmentForm.codigoSKU.trim(),
       nombreProducto: this.editEquipmentForm.nombreProducto.trim(),
       descripcion: this.editEquipmentForm.descripcion?.trim() || '',
       categoriaID: this.editEquipmentForm.categoriaID,
-      location: this.editEquipmentForm.location?.trim() || 'Almacén General',
+      location: this.editEquipmentForm.location?.trim() || 'Almacén Central',
       status: this.editEquipmentForm.status,
       stockActual: Number(this.editEquipmentForm.stockActual) || 0
     };
@@ -344,7 +461,7 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
           this.closeEditEquipmentModal();
         },
         error: (err: any) => {
-          this.showToast('Error al actualizar el equipo.', 'error');
+          this.showToast('Error al actualizar el equipo en el servidor.', 'error');
           console.error(err);
         }
       });
@@ -352,12 +469,6 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
       this.showToast('Equipo actualizado correctamente.', 'success');
       this.closeEditEquipmentModal();
     }
-  }
-
-  quickChangeStatus(item: Equipment, newStatus: EquipmentStatus): void {
-    if (!this.authService.isAdmin()) return;
-    this.inventoryService.updateEquipment(item.productoID, { status: newStatus });
-    this.showToast(`Estado de ${item.codigoSKU} actualizado a "${newStatus}"`, 'success');
   }
 
   deleteEquipment(item: Equipment): void {
@@ -389,7 +500,7 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
       },
       error: (err) => {
         console.error('Error al cargar usuarios', err);
-        this.showToast('No se pudo cargar la lista de usuarios', 'error');
+        this.showToast('No se pudo cargar la lista de usuarios.', 'error');
       }
     });
   }
@@ -400,7 +511,7 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
 
   submitRegisterUser(): void {
     if (!this.newUserForm.name.trim() || !this.newUserForm.email.trim() || !this.newUserForm.password.trim()) {
-      this.showToast('Por favor ingresa nombre, correo y contraseña para el nuevo usuario.', 'error');
+      this.showToast('Por favor completa todos los campos del nuevo usuario.', 'error');
       return;
     }
 
@@ -413,8 +524,9 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
 
     this.http.post('http://localhost:5138/api/sesion/registro', payload).subscribe({
       next: () => {
-        this.showToast(`Usuario ${this.newUserForm.name} registrado con éxito.`, 'success');
-        this.closeUserManagementModal();
+        this.showToast(`Usuario "${this.newUserForm.name}" registrado con éxito.`, 'success');
+        this.newUserForm = { name: '', email: '', password: '', role: 'user' };
+        this.loadUsers();
       },
       error: (err) => {
         const mensajeError = err.error?.mensaje || 'Error al conectar con el servidor';
@@ -427,20 +539,19 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
   deleteUser(user: any): void {
     const currentUser = this.authService.currentUser();
     if (currentUser && user.email === currentUser.email) {
-      this.showToast('Acción denegada: No puedes eliminar tu propia cuenta mientras estás en sesión.', 'error');
+      this.showToast('Acción denegada: No puedes eliminar tu propia cuenta en sesión.', 'error');
       return;
     }
 
-    if (confirm(`¿Estás seguro de eliminar permanentemente al usuario "${user.nombre}"? Esta acción no se puede deshacer.`)) {
-
+    if (confirm(`¿Estás seguro de eliminar al usuario "${user.nombre}"?`)) {
       this.http.delete(`http://localhost:5138/api/sesion/usuarios/${user.usuarioID}`).subscribe({
         next: () => {
-          this.showToast(`Usuario ${user.nombre} eliminado correctamente.`, 'success');
+          this.showToast(`Usuario "${user.nombre}" eliminado correctamente.`, 'success');
           this.loadUsers();
         },
         error: (err) => {
           console.error('Error al eliminar usuario', err);
-          this.showToast('Error al intentar eliminar el usuario del servidor.', 'error');
+          this.showToast('Error al intentar eliminar el usuario.', 'error');
         }
       });
     }
@@ -448,10 +559,8 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
 
   logout(): void {
     this.authService.logout();
-
     localStorage.clear();
     sessionStorage.clear();
-
     this.router.navigate(['/']);
   }
 
@@ -475,6 +584,18 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  copySku(sku: string): void {
+    if (!sku) return;
+    if (this.isBrowser && navigator.clipboard) {
+      navigator.clipboard.writeText(sku).then(() => {
+        this.showToast(`Código SKU "${sku}" copiado al portapapeles`, 'success');
+      }).catch(() => {
+        this.showToast(`SKU: ${sku}`, 'success');
+      });
+    } else {
+      this.showToast(`SKU: ${sku}`, 'success');
+    }
+  }
 
   private initCharts(): void {
     if (!this.isBrowser) return;
@@ -488,23 +609,23 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
           options: {
             responsive: true,
             maintainAspectRatio: false,
-            cutout: '70%',
+            cutout: '76%',
             plugins: {
               legend: {
                 position: 'bottom',
                 labels: {
-                  boxWidth: 12,
+                  boxWidth: 10,
                   padding: 16,
-                  font: { family: "'Plus Jakarta Sans', sans-serif", weight: 600, size: 12 },
-                  color: '#475569'
+                  font: { family: "'Space Grotesk', sans-serif", weight: 400, size: 12 },
+                  color: '#4d4d4d'
                 }
               },
               tooltip: {
-                backgroundColor: '#0f172a',
-                padding: 12,
-                cornerRadius: 8,
-                titleFont: { family: "'Plus Jakarta Sans', sans-serif", weight: 700 },
-                bodyFont: { family: "'Plus Jakarta Sans', sans-serif" }
+                backgroundColor: '#202020',
+                padding: 10,
+                cornerRadius: 0,
+                titleFont: { family: "'Space Grotesk', sans-serif", weight: 400 },
+                bodyFont: { family: "'Inter', sans-serif", size: 12 }
               }
             }
           }
@@ -524,27 +645,29 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
             plugins: {
               legend: { display: false },
               tooltip: {
-                backgroundColor: '#0f172a',
+                backgroundColor: '#202020',
                 padding: 10,
-                cornerRadius: 8
+                cornerRadius: 0,
+                titleFont: { family: "'Space Grotesk', sans-serif", weight: 400 },
+                bodyFont: { family: "'Inter', sans-serif", size: 12 }
               }
             },
             scales: {
               x: {
                 ticks: {
-                  color: '#64748b',
-                  font: { family: "'Plus Jakarta Sans', sans-serif", size: 11 }
+                  color: '#828282',
+                  font: { family: "'Inter', sans-serif", size: 11 }
                 },
                 grid: { display: false }
               },
               y: {
                 ticks: {
-                  color: '#64748b',
+                  color: '#828282',
                   stepSize: 1,
-                  font: { family: "'Plus Jakarta Sans', sans-serif", size: 11 }
+                  font: { family: "'Inter', sans-serif", size: 11 }
                 },
                 grid: {
-                  color: 'rgba(226, 232, 240, 0.7)'
+                  color: '#e8e8e8'
                 }
               }
             }
@@ -564,23 +687,25 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
               {
                 label: 'Equipos Activos',
                 data: [6, 7, 8, 8, 9, this.inventoryService.totalEquipos()],
-                borderColor: '#2563eb',
-                backgroundColor: 'rgba(37, 99, 235, 0.1)',
-                tension: 0.35,
+                borderColor: '#ff682c',
+                backgroundColor: 'rgba(255, 104, 44, 0.05)',
+                tension: 0.25,
                 fill: true,
-                pointBackgroundColor: '#2563eb',
-                pointRadius: 4
+                pointBackgroundColor: '#ff682c',
+                pointRadius: 3,
+                borderWidth: 2
               },
               {
                 label: 'Mantenimientos',
                 data: [1, 2, 1, 3, 2, this.inventoryService.mantenimientoCount()],
-                borderColor: '#f59e0b',
-                backgroundColor: 'rgba(245, 158, 11, 0.05)',
-                borderDash: [5, 5],
-                tension: 0.35,
-                fill: true,
-                pointBackgroundColor: '#f59e0b',
-                pointRadius: 4
+                borderColor: '#816729',
+                backgroundColor: 'transparent',
+                borderDash: [4, 4],
+                tension: 0.25,
+                fill: false,
+                pointBackgroundColor: '#816729',
+                pointRadius: 3,
+                borderWidth: 1.5
               }
             ]
           },
@@ -593,19 +718,26 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
                 align: 'end',
                 labels: {
                   boxWidth: 10,
-                  font: { family: "'Plus Jakarta Sans', sans-serif", weight: 600, size: 11 },
-                  color: '#475569'
+                  font: { family: "'Space Grotesk', sans-serif", weight: 400, size: 11 },
+                  color: '#4d4d4d'
                 }
+              },
+              tooltip: {
+                backgroundColor: '#202020',
+                padding: 10,
+                cornerRadius: 0,
+                titleFont: { family: "'Space Grotesk', sans-serif", weight: 400 },
+                bodyFont: { family: "'Inter', sans-serif", size: 12 }
               }
             },
             scales: {
               x: {
-                ticks: { color: '#64748b', font: { size: 11 } },
+                ticks: { color: '#828282', font: { family: "'Inter', sans-serif", size: 11 } },
                 grid: { display: false }
               },
               y: {
-                ticks: { color: '#64748b', font: { size: 11 } },
-                grid: { color: 'rgba(226, 232, 240, 0.7)' }
+                ticks: { color: '#828282', font: { family: "'Inter', sans-serif", size: 11 } },
+                grid: { color: '#e8e8e8' }
               }
             }
           }
@@ -649,8 +781,8 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
             this.inventoryService.mantenimientoCount(),
             this.inventoryService.bajaCount()
           ],
-          backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
-          hoverBackgroundColor: ['#059669', '#d97706', '#dc2626'],
+          backgroundColor: ['#202020', '#ff682c', '#828282'],
+          hoverBackgroundColor: ['#333333', '#e0531b', '#666666'],
           borderWidth: 2,
           borderColor: '#ffffff'
         }
@@ -661,12 +793,15 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
   private getCategoryChartData(): any {
     const counts: Record<string, number> = {};
     for (const eq of this.inventoryService.equipments()) {
-      const catName = eq.categoriaID;
+      const catName = eq.categoriaID || 'Otros';
       counts[catName] = (counts[catName] || 0) + 1;
     }
 
     const labels = Object.keys(counts);
     const data = Object.values(counts);
+
+    const maxVal = Math.max(...data, 0);
+    const backgroundColors = data.map(val => val === maxVal && val > 0 ? '#ff682c' : '#202020');
 
     return {
       labels,
@@ -674,17 +809,8 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
         {
           label: 'Cantidad de Equipos',
           data,
-          backgroundColor: [
-            '#3b82f6',
-            '#6366f1',
-            '#06b6d4',
-            '#10b981',
-            '#f59e0b',
-            '#8b5cf6',
-            '#ec4899',
-            '#64748b'
-          ],
-          borderRadius: 6
+          backgroundColor: backgroundColors,
+          borderRadius: 0
         }
       ]
     };

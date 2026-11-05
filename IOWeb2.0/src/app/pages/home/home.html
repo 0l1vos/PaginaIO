@@ -1,34 +1,47 @@
 <div class="dashboard-layout">
-  <aside class="dashboard-sidebar" [class.collapsed]="!sidebarOpen">
+  @if (isMobile && sidebarOpen) {
+  <div class="sidebar-backdrop" (click)="closeMobileSidebar()" aria-hidden="true"></div>
+  }
+
+  <aside class="dashboard-sidebar" [class.collapsed]="!isMobile && !sidebarOpen"
+    [class.mobile-open]="isMobile && sidebarOpen">
     <div class="sidebar-header">
       <div class="brand-container">
-        <div class="brand-icon">
-          <span class="material-symbols-outlined">inventory_2</span>
-        </div>
-        @if (sidebarOpen) {
+
+        @if (sidebarOpen || isMobile) {
         <div class="brand-text">
-          <h2>IO</h2>
-          <span class="brand-subtitle">Control de Inventario</span>
+          <div class="brand-title-row">
+            <h2>IO</h2>
+          </div>
+          <span class="brand-subtitle">Sistema de Inventario de activos</span>
         </div>
         }
       </div>
+
+      @if (isMobile) {
+      <button type="button" class="sidebar-toggle-btn mobile-close" (click)="closeMobileSidebar()"
+        aria-label="Cerrar menú">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+      } @else {
       <button type="button" class="sidebar-toggle-btn" (click)="toggleSidebar()"
         [attr.aria-label]="sidebarOpen ? 'Colapsar barra lateral' : 'Expandir barra lateral'">
         <span class="material-symbols-outlined">
           {{ sidebarOpen ? 'chevron_left' : 'chevron_right' }}
         </span>
       </button>
+      }
     </div>
 
     <nav class="sidebar-nav">
-
-      <div class="nav-section-label" *ngIf="sidebarOpen">VISTAS PRINCIPALES</div>
+      <div class="nav-section-label" *ngIf="sidebarOpen || isMobile">NAVEGACIÓN PRINCIPAL</div>
       <ul class="nav-links">
         <li class="active">
-          <a routerLink="/home" [matTooltip]="!sidebarOpen ? 'Inventario de Equipos' : ''">
+          <a routerLink="/home" (click)="closeMobileSidebar()"
+            [matTooltip]="!sidebarOpen && !isMobile ? 'Inventario de Equipos' : ''">
             <span class="material-symbols-outlined">devices</span>
-            @if (sidebarOpen) { <span>Inventario de Equipos</span> }
-            @if (sidebarOpen) {
+            @if (sidebarOpen || isMobile) { <span>Inventario de Equipos</span> }
+            @if (sidebarOpen || isMobile) {
             <span class="nav-badge">{{ inventoryService.totalEquipos() }}</span>
             }
           </a>
@@ -36,22 +49,20 @@
 
         @if (authService.isAdmin()) {
         <li>
-          <a href="javascript:void(0)" (click)="openUserManagementModal()"
-            [matTooltip]="!sidebarOpen ? 'Gestión de Usuarios' : ''">
+          <a href="javascript:void(0)" (click)="openUserManagementModal(); closeMobileSidebar()"
+            [matTooltip]="!sidebarOpen && !isMobile ? 'Gestión de Usuarios' : ''">
             <span class="material-symbols-outlined">group</span>
-            @if (sidebarOpen) { <span>Gestión de Usuarios</span> }
-            @if (sidebarOpen) {
-            <span class="nav-badge admin-badge">BD</span>
+            @if (sidebarOpen || isMobile) { <span>Gestión de Usuarios</span> }
+            @if (sidebarOpen || isMobile) {
+            <span class="nav-badge admin-badge">ADMIN</span>
             }
           </a>
         </li>
         }
       </ul>
-
-
     </nav>
 
-    <div class="sidebar-user-card" *ngIf="sidebarOpen">
+    <div class="sidebar-user-card" *ngIf="sidebarOpen || isMobile">
       <div class="user-avatar-circle" [class.admin-circle]="authService.isAdmin()">
         {{ authService.isAdmin() ? 'AD' : 'US' }}
       </div>
@@ -69,37 +80,36 @@
   <main class="dashboard-main">
     <header class="dashboard-topbar">
       <div class="topbar-left">
-        <button type="button" class="mobile-menu-btn" (click)="toggleSidebar()" aria-label="Menú">
+        <button type="button" class="mobile-menu-btn" (click)="toggleSidebar()" aria-label="Abrir Menú de Navegación">
           <span class="material-symbols-outlined">menu</span>
         </button>
         <div class="page-title">
           <div class="title-with-badge">
+            <span class="ember-dot" aria-hidden="true"></span>
             <h1>Inventario General de Equipos</h1>
             <span class="badge-role-pill" [class.admin]="authService.isAdmin()">
-              {{ authService.isAdmin() ? 'Administrador' : 'Consulta' }}
+              {{ authService.isAdmin() ? 'Administrador' : 'Modo Consulta' }}
             </span>
           </div>
-          <p>Catálogo centralizado de activos tecnológicos, códigos SKU, descripción y estado operativo</p>
+          <p class="topbar-desc">Vista general de activos y dashboards</p>
         </div>
       </div>
 
       <div class="topbar-actions">
-
-
         @if (authService.isAdmin()) {
         <button type="button" class="action-primary-btn" (click)="openAddEquipmentModal()">
-          <span class="material-symbols-outlined">add_box</span>
+          <span class="material-symbols-outlined">add_circle</span>
           <span>Registrar Equipo</span>
         </button>
 
         <button type="button" class="action-secondary-btn" (click)="openUserManagementModal()">
-          <span class="material-symbols-outlined">person_add</span>
+          <span class="material-symbols-outlined">manage_accounts</span>
           <span>Usuarios</span>
         </button>
         } @else {
         <div class="user-consult-badge">
-          <span class="material-symbols-outlined">info</span>
-          <span>Modo Consulta: Solo Lectura</span>
+          <span class="material-symbols-outlined">visibility</span>
+          <span>Modo Solo Lectura</span>
         </div>
         }
       </div>
@@ -107,25 +117,27 @@
 
     @if (feedbackMessage) {
     <div class="toast-notification" [class.success]="feedbackMessage.type === 'success'"
-      [class.error]="feedbackMessage.type === 'error'">
+      [class.error]="feedbackMessage.type === 'error'" role="status" aria-live="polite">
       <span class="material-symbols-outlined">
         {{ feedbackMessage.type === 'success' ? 'check_circle' : 'error' }}
       </span>
       <span>{{ feedbackMessage.text }}</span>
-      <button type="button" class="toast-close" (click)="feedbackMessage = null">✕</button>
+      <button type="button" class="toast-close" (click)="feedbackMessage = null"
+        aria-label="Cerrar notificación">✕</button>
     </div>
     }
 
     <div class="dashboard-content">
       <section class="kpi-grid">
-        <div class="kpi-card total-card" (click)="setStatusFilter('Todos')">
+        <div class="kpi-card total-card" [class.active-kpi]="selectedStatusFilter === 'Todos'"
+          (click)="setStatusFilter('Todos')" role="button" tabindex="0">
           <div class="kpi-body">
             <div class="kpi-info">
-              <span class="kpi-label">TOTAL EQUIPOS EN INVENTARIO</span>
+              <span class="kpi-label">TOTAL EN INVENTARIO</span>
               <h3 class="kpi-value">{{ inventoryService.totalEquipos() }}</h3>
               <div class="kpi-sub">
-                <span class="material-symbols-outlined text-sm">qr_code</span>
-                <span>{{ inventoryService.categories().length }} categorías registradas</span>
+                <span class="material-symbols-outlined text-sm">category</span>
+                <span>{{ inventoryService.categories().length }} categorías activas</span>
               </div>
             </div>
             <div class="kpi-icon-wrapper blue">
@@ -134,51 +146,53 @@
           </div>
         </div>
 
-        <div class="kpi-card operational-card" (click)="setStatusFilter('Operativo')">
+        <div class="kpi-card operational-card" [class.active-kpi]="selectedStatusFilter === 'Operativo'"
+          (click)="setStatusFilter('Operativo')" role="button" tabindex="0">
           <div class="kpi-body">
             <div class="kpi-info">
               <span class="kpi-label">EQUIPOS OPERATIVOS</span>
               <h3 class="kpi-value">{{ inventoryService.operativosCount() }}</h3>
               <div class="kpi-sub text-green">
-                <span class="material-symbols-outlined text-sm">check_circle</span>
-                <span>{{ inventoryService.disponibilidadPorcentaje() }}% de disponibilidad</span>
+                <span class="material-symbols-outlined text-sm">verified</span>
+                <span>{{ inventoryService.disponibilidadPorcentaje() }}% disponible</span>
               </div>
             </div>
             <div class="kpi-icon-wrapper green">
-              <span class="material-symbols-outlined">task_alt</span>
+              <span class="material-symbols-outlined">check_circle</span>
             </div>
           </div>
         </div>
 
-        <div class="kpi-card maintenance-card" (click)="setStatusFilter('En Mantenimiento')">
+        <div class="kpi-card maintenance-card" [class.active-kpi]="selectedStatusFilter === 'En Mantenimiento'"
+          (click)="setStatusFilter('En Mantenimiento')" role="button" tabindex="0">
           <div class="kpi-body">
             <div class="kpi-info">
               <span class="kpi-label">EN MANTENIMIENTO</span>
               <h3 class="kpi-value">{{ inventoryService.mantenimientoCount() }}</h3>
               <div class="kpi-sub text-amber">
                 <span class="material-symbols-outlined text-sm">build</span>
-                <span>En revisión o reparacion</span>
+                <span>En servicio o revisión</span>
               </div>
             </div>
             <div class="kpi-icon-wrapper amber">
-              <span class="material-symbols-outlined">home_repair_service</span>
+              <span class="material-symbols-outlined">handyman</span>
             </div>
           </div>
         </div>
 
-        <div class="kpi-card decommission-card" (click)="setStatusFilter('De Baja')">
+        <div class="kpi-card decommission-card" [class.active-kpi]="selectedStatusFilter === 'De Baja'"
+          (click)="setStatusFilter('De Baja')" role="button" tabindex="0">
           <div class="kpi-body">
             <div class="kpi-info">
-              <span class="kpi-label">BAJAS</span>
+              <span class="kpi-label">DADOS DE BAJA</span>
               <h3 class="kpi-value">{{ inventoryService.bajaCount() }}</h3>
-              <div class="kpi-sub text-purple">
-                <span class="material-symbols-outlined text-sm">sync_alt</span>
-                <span>{{ inventoryService.bajaCount() }} dados de
-                  baja</span>
+              <div class="kpi-sub text-red">
+                <span class="material-symbols-outlined text-sm">do_not_disturb_on</span>
+                <span>Retirados de operación</span>
               </div>
             </div>
-            <div class="kpi-icon-wrapper purple">
-              <span class="material-symbols-outlined">transfer_within_a_station</span>
+            <div class="kpi-icon-wrapper red">
+              <span class="material-symbols-outlined">delete_sweep</span>
             </div>
           </div>
         </div>
@@ -193,11 +207,11 @@
                 <span class="material-symbols-outlined header-icon">pie_chart</span>
                 Distribución por Estado
               </h4>
-              <p>Proporción actual de equipos según su condición operativa</p>
+              <p>Relación porcentual de condición física</p>
             </div>
           </div>
           <div class="chart-canvas-container doughnut-container">
-            <canvas #statusChartRef height="220"></canvas>
+            <canvas #statusChartRef></canvas>
           </div>
         </div>
 
@@ -208,11 +222,11 @@
                 <span class="material-symbols-outlined header-icon">bar_chart</span>
                 Equipos por Categoría
               </h4>
-              <p>Distribución de inventario clasificado por tecnología</p>
+              <p>Concentración de activos por tipo de tecnología</p>
             </div>
           </div>
           <div class="chart-canvas-container">
-            <canvas #categoryChartRef height="220"></canvas>
+            <canvas #categoryChartRef></canvas>
           </div>
         </div>
 
@@ -221,95 +235,211 @@
             <div class="header-titles">
               <h4>
                 <span class="material-symbols-outlined header-icon">show_chart</span>
-                Actividad & Mantenimientos
+                Actividad & Mantenimiento
               </h4>
-              <p>Evolución de equipos en inventario vs mantenimientos reportados</p>
+              <p>Tendencia de inventario y solicitudes</p>
             </div>
           </div>
           <div class="chart-canvas-container">
-            <canvas #trendChartRef height="220"></canvas>
+            <canvas #trendChartRef></canvas>
           </div>
         </div>
       </section>
       }
 
+
       <section class="inventory-table-section">
         <div class="data-table-card">
+
           <div class="table-card-header">
-            <div>
-              <h3>Inventario de Equipos</h3>
-              <p>Consulta detallada de equipos, códigos SKU, especificaciones y estado operativo en tiempo real</p>
+            <div class="header-meta">
+              <div class="kicker-row">
+                <span class="ember-dot"></span>
+                <span class="kicker-text">CATÁLOGO EDITORIAL DE ACTIVOS</span>
+              </div>
+              <h3>Inventario de Hardware & Dispositivos</h3>
+              <p>Explora, ordena y audita las especificaciones y condición operativa de cada equipo</p>
             </div>
 
-            <div class="table-filter-pills">
-              <button type="button" class="filter-pill" [class.active]="selectedStatusFilter === 'Todos'"
-                (click)="setStatusFilter('Todos')">
-                Todos ({{ inventoryService.totalEquipos() }})
-              </button>
-              <button type="button" class="filter-pill success" [class.active]="selectedStatusFilter === 'Operativo'"
-                (click)="setStatusFilter('Operativo')">
-                Operativo ({{ inventoryService.operativosCount() }})
-              </button>
-              <button type="button" class="filter-pill warning"
-                [class.active]="selectedStatusFilter === 'En Mantenimiento'"
-                (click)="setStatusFilter('En Mantenimiento')">
-                En Mantenimiento ({{ inventoryService.mantenimientoCount() }})
-              </button>
-
-              <button type="button" class="filter-pill danger" [class.active]="selectedStatusFilter === 'De Baja'"
-                (click)="setStatusFilter('De Baja')">
-                De Baja ({{ inventoryService.bajaCount() }})
-              </button>
+            <div class="header-right-actions">
+              @if (activeFiltersCount > 0) {
+              <div class="active-badge-pill" (click)="clearFilters()" role="button" tabindex="0"
+                title="Click para restablecer filtros">
+                <span class="ember-dot"></span>
+                <span>{{ activeFiltersCount }} filtro(s) activo(s)</span>
+                <span class="material-symbols-outlined clear-icon">close</span>
+              </div>
+              }
+              <div class="view-mode-toggle">
+                <button type="button" class="view-btn" [class.active]="viewMode === 'table'"
+                  (click)="viewMode = 'table'" matTooltip="Vista Tabla">
+                  <span class="material-symbols-outlined">table_rows</span>
+                  <span class="view-label">Tabla</span>
+                </button>
+                <button type="button" class="view-btn" [class.active]="viewMode === 'cards'"
+                  (click)="viewMode = 'cards'" matTooltip="Vista Tarjetas">
+                  <span class="material-symbols-outlined">grid_view</span>
+                  <span class="view-label">Tarjetas</span>
+                </button>
+              </div>
             </div>
+          </div>
+
+          <div class="table-toolbar">
+            <div class="search-box">
+              <span class="material-symbols-outlined search-icon" aria-hidden="true">search</span>
+              <input type="text" [(ngModel)]="searchTerm" placeholder="Buscar por SKU, modelo, descripción..."
+                aria-label="Buscar en inventario" />
+              @if (searchTerm) {
+              <button type="button" class="clear-search-btn" (click)="searchTerm = ''" aria-label="Limpiar búsqueda">
+                <span class="material-symbols-outlined">close</span>
+              </button>
+              }
+            </div>
+
+            <div class="filter-controls-group">
+              <div class="dropdown-filter">
+                <span class="material-symbols-outlined dropdown-icon">category</span>
+                <select [(ngModel)]="selectedCategoryFilter" aria-label="Filtrar por categoría">
+                  <option value="Todas">Todas las Categorías</option>
+                  @for (cat of categoryOption; track cat) {
+                  <option [value]="cat">{{ cat }}</option>
+                  }
+                </select>
+                <span class="material-symbols-outlined dropdown-arrow">expand_more</span>
+              </div>
+
+              <!-- Ordenamiento con selector -->
+              <div class="dropdown-filter">
+                <span class="material-symbols-outlined dropdown-icon">sort</span>
+                <select [(ngModel)]="sortBy" aria-label="Ordenar resultados">
+                  <option value="recent">Más Recientes</option>
+                  <option value="sku-asc">SKU (A - Z)</option>
+                  <option value="sku-desc">SKU (Z - A)</option>
+                  <option value="name-asc">Nombre (A - Z)</option>
+                  <option value="name-desc">Nombre (Z - A)</option>
+                  <option value="cat-asc">Categoría (A - Z)</option>
+                  <option value="stock-desc">Mayor Stock</option>
+                  <option value="stock-asc">Menor Stock</option>
+                </select>
+                <span class="material-symbols-outlined dropdown-arrow">expand_more</span>
+              </div>
+
+              @if (activeFiltersCount > 0) {
+              <button type="button" class="btn-clear-filters" (click)="clearFilters()">
+                <span class="material-symbols-outlined">filter_alt_off</span>
+                <span>Limpiar</span>
+              </button>
+              }
+            </div>
+          </div>
+
+          <div class="status-pills-bar">
+            <button type="button" class="filter-pill" [class.active]="selectedStatusFilter === 'Todos'"
+              (click)="setStatusFilter('Todos')">
+              <span class="filter-pill-text">Todos</span>
+              <span class="filter-pill-count font-mono">{{ inventoryService.totalEquipos() }}</span>
+            </button>
+            <button type="button" class="filter-pill success" [class.active]="selectedStatusFilter === 'Operativo'"
+              (click)="setStatusFilter('Operativo')">
+              <span class="status-dot"></span>
+              <span class="filter-pill-text">Operativo</span>
+              <span class="filter-pill-count font-mono">{{ inventoryService.operativosCount() }}</span>
+            </button>
+            <button type="button" class="filter-pill warning"
+              [class.active]="selectedStatusFilter === 'En Mantenimiento'"
+              (click)="setStatusFilter('En Mantenimiento')">
+              <span class="status-dot ember"></span>
+              <span class="filter-pill-text">En Mantenimiento</span>
+              <span class="filter-pill-count font-mono">{{ inventoryService.mantenimientoCount() }}</span>
+            </button>
+            <button type="button" class="filter-pill danger" [class.active]="selectedStatusFilter === 'De Baja'"
+              (click)="setStatusFilter('De Baja')">
+              <span class="status-dot slate"></span>
+              <span class="filter-pill-text">De Baja</span>
+              <span class="filter-pill-count font-mono">{{ inventoryService.bajaCount() }}</span>
+            </button>
           </div>
 
           @if (!authService.isAdmin()) {
           <div class="readonly-banner">
             <span class="material-symbols-outlined">lock</span>
             <span>
-              <strong>Sesión de Consulta Activa:</strong> Puedes buscar, filtrar y examinar la ficha técnica de
-              cualquier equipo. El registro, edición y bajas están reservados al Administrador.
+              <strong>Modo de Consulta Activo:</strong> Puedes buscar, filtrar y examinar la ficha técnica. El alta,
+              modificación y eliminación requieren credenciales de Administrador.
             </span>
           </div>
           }
 
+          @if (viewMode === 'table') {
           <div class="table-responsive-wrapper">
-            <div class="search-box">
-              <span class="material-symbols-outlined search-icon">search</span>
-              <input type="text" [(ngModel)]="searchTerm"
-                placeholder="Buscar por SKU, nombre, descripción o estado..." />
-              @if (searchTerm) {
-              <button class="clear-search-btn" (click)="searchTerm = ''" aria-label="Limpiar búsqueda">
-                <span class="material-symbols-outlined">close</span>
-              </button>
-              }
-            </div>
             <table class="modern-inventory-table">
               <thead>
                 <tr>
-                  <th style="width: 140px;">CÓDIGO SKU</th>
-                  <th style="width: 220px;">EQUIPO & MODELO</th>
-                  <th style="width: 150px;">CATEGORÍA</th>
-                  <th>DESCRIPCIÓN TÉCNICA</th>
-                  <th style="width: 100px; text-align: center;">STOCK</th>
-                  <th style="width: 160px;">UBICACIÓN</th>
-                  <th style="width: 150px; text-align: center;">ESTADO</th>
-                  <th style="width: 130px; text-align: center;">ACCIONES</th>
+                  <th style="min-width: 140px;" (click)="setSortColumn('sku')" class="sortable-th"
+                    [class.sorted]="sortBy.startsWith('sku')">
+                    <div class="th-content">
+                      <span>CÓDIGO SKU</span>
+                      <span class="material-symbols-outlined sort-icon">
+                        {{ sortBy === 'sku-asc' ? 'arrow_upward' : sortBy === 'sku-desc' ? 'arrow_downward' :
+                        'unfold_more' }}
+                      </span>
+                    </div>
+                  </th>
+                  <th style="min-width: 220px;" (click)="setSortColumn('name')" class="sortable-th"
+                    [class.sorted]="sortBy.startsWith('name')">
+                    <div class="th-content">
+                      <span>EQUIPO & MODELO</span>
+                      <span class="material-symbols-outlined sort-icon">
+                        {{ sortBy === 'name-asc' ? 'arrow_upward' : sortBy === 'name-desc' ? 'arrow_downward' :
+                        'unfold_more' }}
+                      </span>
+                    </div>
+                  </th>
+                  <th style="min-width: 140px;" (click)="setSortColumn('category')" class="sortable-th"
+                    [class.sorted]="sortBy.startsWith('cat')">
+                    <div class="th-content">
+                      <span>CATEGORÍA</span>
+                      <span class="material-symbols-outlined sort-icon">
+                        {{ sortBy === 'cat-asc' ? 'arrow_upward' : sortBy === 'cat-desc' ? 'arrow_downward' :
+                        'unfold_more' }}
+                      </span>
+                    </div>
+                  </th>
+                  <th style="min-width: 220px;">DESCRIPCIÓN</th>
+                  <th style="min-width: 95px; text-align: center;" (click)="setSortColumn('stock')"
+                    class="sortable-th center-th" [class.sorted]="sortBy.startsWith('stock')">
+                    <div class="th-content center">
+                      <span>STOCK</span>
+                      <span class="material-symbols-outlined sort-icon">
+                        {{ sortBy === 'stock-asc' ? 'arrow_upward' : sortBy === 'stock-desc' ? 'arrow_downward' :
+                        'unfold_more' }}
+                      </span>
+                    </div>
+                  </th>
+                  <th style="min-width: 150px;">UBICACIÓN</th>
+                  <th style="min-width: 140px; text-align: center;">ESTADO</th>
+                  <th style="min-width: 120px; text-align: center;">ACCIONES</th>
                 </tr>
               </thead>
               <tbody>
                 @for (item of filteredEquipments; track item.productoID) {
-                <tr>
+                <tr class="table-row-hover">
                   <td>
-                    <div class="sku-cell" (click)="openEquipmentDetail(item)" matTooltip="Ver Ficha Técnica">
-                      <span class="material-symbols-outlined sku-icon">qr_code_2</span>
-                      <span class="sku-badge">{{ item.codigoSKU }}</span>
+                    <div class="sku-cell" (click)="openEquipmentDetail(item)" matTooltip="Ver Ficha Técnica"
+                      role="button" tabindex="0">
+                      <span class="sku-badge font-mono">{{ item.codigoSKU }}</span>
+                      <button type="button" class="copy-sku-inline-btn"
+                        (click)="$event.stopPropagation(); copySku(item.codigoSKU)" matTooltip="Copiar SKU"
+                        aria-label="Copiar SKU">
+                        <span class="material-symbols-outlined">content_copy</span>
+                      </button>
                     </div>
                   </td>
 
                   <td>
                     <div class="equipment-name-cell">
-                      <span class="eq-name">{{ item.nombreProducto }}</span>
+                      <strong class="eq-name">{{ item.nombreProducto }}</strong>
                     </div>
                   </td>
 
@@ -318,19 +448,20 @@
                   </td>
 
                   <td>
-                    <div class="description-cell" matTooltip="{{ item.descripcion }}">
-                      {{ item.descripcion }}
+                    <div class="description-cell" [title]="item.descripcion || ''">
+                      {{ item.descripcion || 'Sin descripción' }}
                     </div>
                   </td>
 
                   <td style="text-align: center;">
-                    <strong>{{ item.stockActual }}</strong>
+                    <span class="stock-badge font-mono" [class.low-stock]="item.stockActual <= 1">{{ item.stockActual
+                      }}</span>
                   </td>
 
                   <td>
                     <div class="location-cell">
                       <span class="material-symbols-outlined location-icon">place</span>
-                      <span>{{ item.location || 'Sin ubicación' }}</span>
+                      <span>{{ item.location || 'Sin asignar' }}</span>
                     </div>
                   </td>
 
@@ -344,18 +475,18 @@
                   <td style="text-align: center;">
                     <div class="row-actions">
                       <button type="button" class="action-btn view" (click)="openEquipmentDetail(item)"
-                        matTooltip="Ver Ficha Técnica" aria-label="Ver Ficha">
+                        matTooltip="Ficha Técnica" aria-label="Ver Ficha Técnica">
                         <span class="material-symbols-outlined">visibility</span>
                       </button>
 
                       @if (authService.isAdmin()) {
                       <button type="button" class="action-btn edit" (click)="openEditEquipmentModal(item)"
-                        matTooltip="Editar / Cambiar Estado" aria-label="Editar">
+                        matTooltip="Editar" aria-label="Editar">
                         <span class="material-symbols-outlined">edit</span>
                       </button>
 
                       <button type="button" class="action-btn delete" (click)="deleteEquipment(item)"
-                        matTooltip="Eliminar del Inventario" aria-label="Eliminar">
+                        matTooltip="Eliminar" aria-label="Eliminar">
                         <span class="material-symbols-outlined">delete</span>
                       </button>
                       }
@@ -367,10 +498,9 @@
                   <td colspan="8" class="empty-state-cell">
                     <div class="empty-state">
                       <span class="material-symbols-outlined empty-icon">search_off</span>
-                      <h4>No se encontraron equipos</h4>
-                      <p>No hay activos que coincidan con "{{ searchTerm }}" o el filtro seleccionado.</p>
-                      <button type="button" class="btn-reset-filters"
-                        (click)="searchTerm = ''; selectedStatusFilter = 'Todos'">
+                      <h4>No se encontraron activos coincidentes</h4>
+                      <p>Prueba con otros términos de búsqueda o elimina los filtros aplicados.</p>
+                      <button type="button" class="btn-reset-filters" (click)="clearFilters()">
                         Restablecer Filtros
                       </button>
                     </div>
@@ -380,6 +510,70 @@
               </tbody>
             </table>
           </div>
+          }
+
+          @if (viewMode === 'cards') {
+          <div class="cards-view-grid">
+            @for (item of filteredEquipments; track item.productoID) {
+            <article class="equipment-mobile-card">
+              <div class="card-top-row">
+                <div class="sku-mobile-box">
+                  <span class="sku-badge font-mono">{{ item.codigoSKU }}</span>
+                  <button type="button" class="copy-sku-inline-btn" (click)="copySku(item.codigoSKU)"
+                    title="Copiar SKU">
+                    <span class="material-symbols-outlined">content_copy</span>
+                  </button>
+                </div>
+                <span class="status-pill" [ngClass]="getStatusBadgeClass(item.status)">
+                  <span class="status-dot"></span>
+                  {{ item.status }}
+                </span>
+              </div>
+
+              <h4 class="card-item-title" (click)="openEquipmentDetail(item)">{{ item.nombreProducto }}</h4>
+
+              <div class="card-item-chips">
+                <span class="category-chip">{{ getCategoryName(item.categoriaID) }}</span>
+                <span class="stock-badge font-mono" [class.low-stock]="item.stockActual <= 1">
+                  Stock: <strong>{{ item.stockActual }}</strong>
+                </span>
+              </div>
+
+              <p class="card-item-desc">{{ item.descripcion || 'Sin descripción detallada' }}</p>
+
+              <div class="card-location-row">
+                <span class="material-symbols-outlined location-icon">place</span>
+                <span>{{ item.location || 'Sin ubicación registrada' }}</span>
+              </div>
+
+              <div class="card-actions-row">
+                <button type="button" class="card-btn-view" (click)="openEquipmentDetail(item)">
+                  <span class="material-symbols-outlined">visibility</span>
+                  <span>Ficha Técnica</span>
+                </button>
+
+                @if (authService.isAdmin()) {
+                <button type="button" class="card-btn-edit" (click)="openEditEquipmentModal(item)" aria-label="Editar">
+                  <span class="material-symbols-outlined">edit</span>
+                </button>
+                <button type="button" class="card-btn-delete" (click)="deleteEquipment(item)" aria-label="Eliminar">
+                  <span class="material-symbols-outlined">delete</span>
+                </button>
+                }
+              </div>
+            </article>
+            } @empty {
+            <div class="empty-state full-width-empty">
+              <span class="material-symbols-outlined empty-icon">search_off</span>
+              <h4>No se encontraron activos coincidentes</h4>
+              <p>Prueba con otros términos de búsqueda o elimina los filtros aplicados.</p>
+              <button type="button" class="btn-reset-filters" (click)="clearFilters()">
+                Restablecer Filtros
+              </button>
+            </div>
+            }
+          </div>
+          }
 
           <div class="table-footer">
             <span class="footer-count">
@@ -393,92 +587,122 @@
   </main>
 </div>
 
-
 @if (showAddEquipmentModal) {
-<div class="modal-backdrop" (click)="closeAddEquipmentModal()">
-  <div class="modal-card" (click)="$event.stopPropagation()">
+<div class="modal-backdrop" (click)="closeAddEquipmentModal()" role="dialog" aria-modal="true"
+  aria-labelledby="addEquipTitle">
+  <div class="modal-card modal-form-dialog" (click)="$event.stopPropagation()">
+    <div class="modal-drag-handle" aria-hidden="true"></div>
+
     <div class="modal-header">
       <div class="modal-title-group">
-        <span class="material-symbols-outlined modal-header-icon">add_circle</span>
-        <div>
-          <h3>Registrar Nuevo Equipo en Inventario</h3>
-          <p>Ingresa el código SKU, especificaciones y estado operativo del activo</p>
+        <div class="modal-kicker-tag">
+          <span class="ember-dot"></span>
+          <span>EQUIPAMIENTO & HARDWARE</span>
         </div>
+        <h3 id="addEquipTitle">Registrar Nuevo Activo TI</h3>
+        <p>Ingresa el identificador SKU, especificaciones de hardware y estado inicial</p>
       </div>
-      <button type="button" class="modal-close-btn" (click)="closeAddEquipmentModal()">✕</button>
+      <button type="button" class="modal-close-btn" (click)="closeAddEquipmentModal()"
+        aria-label="Cerrar ventana">✕</button>
     </div>
 
     <form (ngSubmit)="submitAddEquipment()" class="modal-form">
-      <div class="form-row">
-        <div class="form-group flex-2">
-          <label for="newSku">Código SKU *</label>
-          <div class="input-with-action">
-            <input id="newSku" type="text" name="codigoSKU" [(ngModel)]="newEquipment.codigoSKU" required
-              placeholder="Ej. SKU-SRV-101" />
-            <button type="button" class="btn-sku-suggest" (click)="suggestSku()"
-              matTooltip="Generar sugerencia automática">
-              <span class="material-symbols-outlined icon-small">magic_button</span>
-              <span>Auto SKU</span>
-            </button>
+      <div class="modal-scroll-body">
+        <div class="form-row">
+          <div class="form-group flex-2">
+            <label for="newSku">Código SKU *</label>
+            <div class="input-with-action">
+              <div class="input-icon-wrapper">
+                <span class="material-symbols-outlined field-icon">qr_code_2</span>
+                <input id="newSku" type="text" name="codigoSKU" [(ngModel)]="newEquipment.codigoSKU" required
+                  placeholder="Ej. SKU-SRV-101" class="font-mono" />
+              </div>
+              <button type="button" class="btn-sku-suggest" (click)="suggestSku()"
+                matTooltip="Generar SKU sugerido automáticamente">
+                <span class="material-symbols-outlined icon-small">magic_button</span>
+                <span>Auto</span>
+              </button>
+            </div>
+            <span class="field-hint">Código único de control de inventario</span>
           </div>
-          <span class="field-hint">Código único de control de inventario</span>
+
+          <div class="form-group flex-2">
+            <label for="newStatus">Estado Operativo *</label>
+            <div class="input-icon-wrapper select-wrapper">
+              <span class="material-symbols-outlined field-icon">verified</span>
+              <select id="newStatus" name="status" [(ngModel)]="newEquipment.status" required>
+                @for (st of statusOptions; track st) {
+                <option [value]="st">{{ st }}</option>
+                }
+              </select>
+              <span class="material-symbols-outlined select-arrow">expand_more</span>
+            </div>
+          </div>
         </div>
 
-        <div class="form-group flex-2">
-          <label for="newStatus">Estado Inicial *</label>
-          <select id="newStatus" name="status" [(ngModel)]="newEquipment.status" required>
-            @for (st of statusOptions; track st) {
-            <option [value]="st">{{ st }}</option>
-            }
-          </select>
-        </div>
-      </div>
+        <div class="form-row">
+          <div class="form-group flex-3">
+            <label for="newName">Nombre / Modelo del Equipo *</label>
+            <div class="input-icon-wrapper">
+              <span class="material-symbols-outlined field-icon">devices</span>
+              <input id="newName" type="text" name="nombreProducto" [(ngModel)]="newEquipment.nombreProducto" required
+                placeholder="Ej. Servidor Dell PowerEdge R750" />
+            </div>
+          </div>
 
-      <div class="form-row">
-        <div class="form-group flex-3">
-          <label for="newName">Nombre / Modelo del Equipo *</label>
-          <input id="newName" type="text" name="nombreProducto" [(ngModel)]="newEquipment.nombreProducto" required
-            placeholder="Ej. Dell PowerEdge R750 / Cisco Catalyst 9300" />
-        </div>
-
-        <div class="form-group flex-2">
-          <label for="newCategory">Categoría</label>
-          <select id="newCategory" name="categoriaID" [(ngModel)]="newEquipment.categoriaID" (change)="suggestSku()"
-            required>
-            @for (cat of categoryOption; track cat) {
-            <option [ngValue]="cat">{{ cat }}</option>
-            }
-          </select>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="newDescription">Descripción Técnica & Especificaciones *</label>
-        <textarea id="newDescription" name="descripcion" rows="3" [(ngModel)]="newEquipment.descripcion" required
-          placeholder="Especificaciones clave: procesador, memoria, puertos, capacidad de almacenamiento, etc."></textarea>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group flex-2">
-          <label for="newLocation">Ubicación Física</label>
-          <input id="newLocation" type="text" name="location" [(ngModel)]="newEquipment.location"
-            placeholder="Ej. Data Center Rack A3 / Lab Cómputo 1" />
+          <div class="form-group flex-2">
+            <label for="newCategory">Categoría *</label>
+            <div class="input-icon-wrapper select-wrapper">
+              <span class="material-symbols-outlined field-icon">category</span>
+              <select id="newCategory" name="categoriaID" [(ngModel)]="newEquipment.categoriaID" (change)="suggestSku()"
+                required>
+                @for (cat of categoryOption; track cat) {
+                <option [value]="cat">{{ cat }}</option>
+                }
+              </select>
+              <span class="material-symbols-outlined select-arrow">expand_more</span>
+            </div>
+          </div>
         </div>
 
-        <div class="form-group flex-2">
-          <label for="newStock">Stock Actual</label>
-          <input id="newStock" type="number" name="stockActual" [(ngModel)]="newEquipment.stockActual"
-            placeholder="Ej. 10" />
+        <div class="form-group">
+          <label for="newDescription">Descripción Técnica & Especificaciones *</label>
+          <div class="textarea-icon-wrapper">
+            <span class="material-symbols-outlined field-icon textarea-icon">description</span>
+            <textarea id="newDescription" name="descripcion" rows="3" [(ngModel)]="newEquipment.descripcion" required
+              placeholder="Detalla procesador, RAM, almacenamiento, puertos, serie interna, etc."></textarea>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group flex-2">
+            <label for="newLocation">Ubicación Física</label>
+            <div class="input-icon-wrapper">
+              <span class="material-symbols-outlined field-icon">place</span>
+              <input id="newLocation" type="text" name="location" [(ngModel)]="newEquipment.location"
+                placeholder="Ej. Rack 04 - Data Center / Almacén TI" />
+            </div>
+          </div>
+
+          <div class="form-group flex-2">
+            <label for="newStock">Stock Disponible</label>
+            <div class="input-icon-wrapper">
+              <span class="material-symbols-outlined field-icon">inventory</span>
+              <input id="newStock" type="number" name="stockActual" min="0" [(ngModel)]="newEquipment.stockActual"
+                placeholder="1" class="font-mono" />
+            </div>
+          </div>
         </div>
       </div>
 
       <div class="modal-actions">
         <button type="button" class="btn-cancel" (click)="closeAddEquipmentModal()">
-          Cancelar
+          <span class="material-symbols-outlined icon-small">close</span>
+          <span>Cancelar</span>
         </button>
         <button type="submit" class="btn-submit">
           <span class="material-symbols-outlined icon-small">save</span>
-          Guardar Equipo
+          <span>Guardar Activo</span>
         </button>
       </div>
     </form>
@@ -487,78 +711,111 @@
 }
 
 @if (showEditEquipmentModal) {
-<div class="modal-backdrop" (click)="closeEditEquipmentModal()">
-  <div class="modal-card" (click)="$event.stopPropagation()">
+<div class="modal-backdrop" (click)="closeEditEquipmentModal()" role="dialog" aria-modal="true"
+  aria-labelledby="editEquipTitle">
+  <div class="modal-card modal-form-dialog" (click)="$event.stopPropagation()">
+    <div class="modal-drag-handle" aria-hidden="true"></div>
+
     <div class="modal-header">
       <div class="modal-title-group">
-        <span class="material-symbols-outlined modal-header-icon">edit_note</span>
-        <div>
-          <h3>Modificar Activo: {{ editEquipmentForm.codigoSKU }}</h3>
-          <p>Actualiza el estado operativo, descripción técnica o reubicación del equipo</p>
+        <div class="modal-kicker-tag">
+          <span class="ember-dot"></span>
+          <span>ACTUALIZACIÓN DE ACTIVO</span>
         </div>
+        <h3 id="editEquipTitle">Modificar Activo: {{ editEquipmentForm.codigoSKU }}</h3>
+        <p>Actualiza la ficha técnica, condición operativa o asignación de ubicación</p>
       </div>
-      <button type="button" class="modal-close-btn" (click)="closeEditEquipmentModal()">✕</button>
+      <button type="button" class="modal-close-btn" (click)="closeEditEquipmentModal()"
+        aria-label="Cerrar ventana">✕</button>
     </div>
 
     <form (ngSubmit)="submitEditEquipment()" class="modal-form">
-      <div class="form-row">
-        <div class="form-group flex-2">
-          <label for="editSku">Código SKU</label>
-          <input id="editSku" type="text" name="codigoSKU" [(ngModel)]="editEquipmentForm.codigoSKU" required />
+      <div class="modal-scroll-body">
+        <div class="form-row">
+          <div class="form-group flex-2">
+            <label for="editSku">Código SKU *</label>
+            <div class="input-icon-wrapper">
+              <span class="material-symbols-outlined field-icon">qr_code_2</span>
+              <input id="editSku" type="text" name="codigoSKU" [(ngModel)]="editEquipmentForm.codigoSKU" required
+                class="font-mono" />
+            </div>
+          </div>
+
+          <div class="form-group flex-2">
+            <label for="editStatus">Estado Operativo *</label>
+            <div class="input-icon-wrapper select-wrapper">
+              <span class="material-symbols-outlined field-icon">verified</span>
+              <select id="editStatus" name="status" [(ngModel)]="editEquipmentForm.status" required>
+                @for (st of statusOptions; track st) {
+                <option [value]="st">{{ st }}</option>
+                }
+              </select>
+              <span class="material-symbols-outlined select-arrow">expand_more</span>
+            </div>
+          </div>
         </div>
 
-        <div class="form-group flex-2">
-          <label for="editStatus">Estado Operativo *</label>
-          <select id="editStatus" name="status" [(ngModel)]="editEquipmentForm.status" required>
-            @for (st of statusOptions; track st) {
-            <option [value]="st">{{ st }}</option>
-            }
-          </select>
-        </div>
-      </div>
+        <div class="form-row">
+          <div class="form-group flex-3">
+            <label for="editName">Nombre / Modelo *</label>
+            <div class="input-icon-wrapper">
+              <span class="material-symbols-outlined field-icon">devices</span>
+              <input id="editName" type="text" name="nombreProducto" [(ngModel)]="editEquipmentForm.nombreProducto"
+                required />
+            </div>
+          </div>
 
-      <div class="form-row">
-        <div class="form-group flex-3">
-          <label for="editName">Nombre / Modelo</label>
-          <input id="editName" type="text" name="nombreProducto" [(ngModel)]="editEquipmentForm.nombreProducto"
-            required />
-        </div>
-
-        <div class="form-group flex-2">
-          <label for="editCategory">Categoría</label>
-          <select id="editCategory" name="categoriaID" [(ngModel)]="editEquipmentForm.categoriaID" required>
-            @for (cat of categoryOption; track cat) {
-            <option [ngValue]="cat">{{ cat }}</option>
-            }
-          </select>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="editDescription">Descripción Técnica</label>
-        <textarea id="editDescription" name="descripcion" rows="3" [(ngModel)]="editEquipmentForm.descripcion"
-          required></textarea>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group flex-2">
-          <label for="editLocation">Ubicación Actual</label>
-          <input id="editLocation" type="text" name="location" [(ngModel)]="editEquipmentForm.location" />
+          <div class="form-group flex-2">
+            <label for="editCategory">Categoría *</label>
+            <div class="input-icon-wrapper select-wrapper">
+              <span class="material-symbols-outlined field-icon">category</span>
+              <select id="editCategory" name="categoriaID" [(ngModel)]="editEquipmentForm.categoriaID" required>
+                @for (cat of categoryOption; track cat) {
+                <option [value]="cat">{{ cat }}</option>
+                }
+              </select>
+              <span class="material-symbols-outlined select-arrow">expand_more</span>
+            </div>
+          </div>
         </div>
 
-        <div class="form-group flex-2">
-          <label for="editStock">Stock Actual</label>
-          <input id="editStock" type="number" name="stockActual" [(ngModel)]="editEquipmentForm.stockActual" />
+        <div class="form-group">
+          <label for="editDescription">Descripción Técnica & Especificaciones</label>
+          <div class="textarea-icon-wrapper">
+            <span class="material-symbols-outlined field-icon textarea-icon">description</span>
+            <textarea id="editDescription" name="descripcion" rows="3" [(ngModel)]="editEquipmentForm.descripcion"
+              required></textarea>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group flex-2">
+            <label for="editLocation">Ubicación Física</label>
+            <div class="input-icon-wrapper">
+              <span class="material-symbols-outlined field-icon">place</span>
+              <input id="editLocation" type="text" name="location" [(ngModel)]="editEquipmentForm.location" />
+            </div>
+          </div>
+
+          <div class="form-group flex-2">
+            <label for="editStock">Stock Disponible</label>
+            <div class="input-icon-wrapper">
+              <span class="material-symbols-outlined field-icon">inventory</span>
+              <input id="editStock" type="number" name="stockActual" min="0" [(ngModel)]="editEquipmentForm.stockActual"
+                class="font-mono" />
+            </div>
+          </div>
         </div>
       </div>
 
       <div class="modal-actions">
         <button type="button" class="btn-cancel" (click)="closeEditEquipmentModal()">
-          Cancelar
+          <span class="material-symbols-outlined icon-small">close</span>
+          <span>Cancelar</span>
         </button>
         <button type="submit" class="btn-submit">
           <span class="material-symbols-outlined icon-small">check</span>
-          Actualizar Equipo
+          <span>Guardar Cambios</span>
         </button>
       </div>
     </form>
@@ -567,73 +824,92 @@
 }
 
 @if (showUserManagementModal) {
-<div class="modal-backdrop" (click)="closeUserManagementModal()">
+<div class="modal-backdrop" (click)="closeUserManagementModal()" role="dialog" aria-modal="true"
+  aria-labelledby="userMgmtTitle">
   <div class="modal-card modal-wide" (click)="$event.stopPropagation()">
+    <div class="modal-drag-handle" aria-hidden="true"></div>
+
     <div class="modal-header">
       <div class="modal-title-group">
-        <span class="material-symbols-outlined modal-header-icon">admin_panel_settings</span>
-        <div>
-          <h3>Gestión de Usuarios & Control de Accesos</h3>
-          <p>Registra nuevos usuarios y define si tienen privilegios de Administrador o solo Consulta</p>
+        <div class="modal-kicker-tag">
+          <span class="ember-dot"></span>
+          <span>CONTROL DE ACCESOS & ROLES</span>
         </div>
+        <h3 id="userMgmtTitle">Gestión de Usuarios & Credenciales</h3>
+        <p>Administra los roles, permisos y cuentas con acceso al observatorio</p>
       </div>
-      <button type="button" class="modal-close-btn" (click)="closeUserManagementModal()">✕</button>
+      <button type="button" class="modal-close-btn" (click)="closeUserManagementModal()"
+        aria-label="Cerrar modal">✕</button>
     </div>
 
     <div class="user-management-body">
       <div class="user-register-box">
-        <h4>
-          <span class="material-symbols-outlined">person_add</span>
-          Registrar Nuevo Usuario
-        </h4>
+        <div class="panel-header">
+          <span class="material-symbols-outlined header-icon">person_add</span>
+          <h4>Crear Nuevo Usuario</h4>
+        </div>
+
         <form (ngSubmit)="submitRegisterUser()" class="user-form">
           <div class="form-group">
-            <label for="newUserName">Nombre Completo</label>
-            <input id="newUserName" type="text" name="name" [(ngModel)]="newUserForm.name" required
-              placeholder="Ej. Ing. Daniel Ortiz" />
+            <label for="newUserName">Nombre Completo *</label>
+            <div class="input-icon-wrapper">
+              <span class="material-symbols-outlined field-icon">person</span>
+              <input id="newUserName" type="text" name="name" [(ngModel)]="newUserForm.name" required
+                placeholder="Nombre Completo" />
+            </div>
           </div>
 
           <div class="form-group">
             <label for="newUserEmail">Correo Electrónico *</label>
-            <input id="newUserEmail" type="email" name="email" [(ngModel)]="newUserForm.email" required
-              placeholder="usuario@correo.com" />
+            <div class="input-icon-wrapper">
+              <span class="material-symbols-outlined field-icon">alternate_email</span>
+              <input id="newUserEmail" type="email" name="email" [(ngModel)]="newUserForm.email" required
+                placeholder="usuario@empresa.com" />
+            </div>
           </div>
 
           <div class="form-row">
             <div class="form-group flex-2">
-              <label for="newUserRole">Tipo de Rol</label>
-              <select id="newUserRole" name="role" [(ngModel)]="newUserForm.role" required>
-                <option value="user">Usuario (Solo Consulta)</option>
-                <option value="admin">Administrador (Control Total)</option>
-              </select>
+              <label for="newUserRole">Rol Asignado *</label>
+              <div class="input-icon-wrapper select-wrapper">
+                <span class="material-symbols-outlined field-icon">security</span>
+                <select id="newUserRole" name="role" [(ngModel)]="newUserForm.role" required>
+                  <option value="user">Consulta (Solo Lectura)</option>
+                  <option value="admin">Administrador (Total)</option>
+                </select>
+                <span class="material-symbols-outlined select-arrow">expand_more</span>
+              </div>
             </div>
 
             <div class="form-group flex-2">
-              <label for="newUserPassword">Contraseña Inicial</label>
-              <input id="newUserPassword" type="text" name="password" [(ngModel)]="newUserForm.password" required />
+              <label for="newUserPassword">Contraseña Inicial *</label>
+              <div class="input-icon-wrapper">
+                <span class="material-symbols-outlined field-icon">lock</span>
+                <input id="newUserPassword" type="password" name="password" [(ngModel)]="newUserForm.password" required
+                  placeholder="Mínimo 8 caracteres" />
+              </div>
             </div>
           </div>
 
           <button type="submit" class="btn-submit btn-block">
-            <span class="material-symbols-outlined icon-small">add</span>
-            Crear Usuario
+            <span class="material-symbols-outlined icon-small">person_add</span>
+            <span>Crear Usuario</span>
           </button>
         </form>
       </div>
 
       <div class="user-list-box">
-        <h4>
-          <span class="material-symbols-outlined">group</span>
-          Usuarios Registrados
-        </h4>
-        <div class="user-list-scroll">
+        <div class="panel-header">
+          <span class="material-symbols-outlined header-icon">group</span>
+          <h4>Usuarios en Sistema ( <span class="font-mono">{{ usersList.length }}</span> )</h4>
+        </div>
+
+        <div class="user-list-scroll desktop-only">
           <table class="user-table">
             <thead>
               <tr>
-                <th>Nombre</th>
-                <th>Correo</th>
+                <th>Usuario</th>
                 <th>Rol</th>
-                <th>Fecha</th>
                 <th style="text-align: center;">Acción</th>
               </tr>
             </thead>
@@ -641,32 +917,37 @@
               @for (user of usersList; track user.usuarioID || user.email) {
               <tr>
                 <td>
-                  <strong>{{ user.nombre }}</strong>
+                  <div class="user-cell-info">
+                    <div class="mini-avatar font-mono"
+                      [ngClass]="user.role === 'admin' ? 'admin-avatar' : 'user-avatar'">
+                      {{ (user.nombre || user.email).charAt(0).toUpperCase() }}
+                    </div>
+                    <div class="user-text-meta">
+                      <strong class="user-name">{{ user.nombre }}</strong>
+                      <span class="user-email-text">{{ user.email }}</span>
+                    </div>
+                  </div>
                 </td>
-                <td>{{ user.email }}</td>
                 <td>
                   <span class="status-pill"
                     [ngClass]="user.role === 'admin' ? 'status-badge-operativo' : 'status-badge-neutral'">
+                    <span class="status-dot"></span>
                     {{ user.role === 'admin' ? 'Administrador' : 'Consulta' }}
                   </span>
                 </td>
-                <td>
-                  {{ user.fechaCreacion | date:'dd/MM/yyyy' }}
-                </td>
                 <td style="text-align: center;">
                   <button type="button" class="action-btn delete" (click)="deleteUser(user)"
-                    matTooltip="Eliminar Usuario" aria-label="Eliminar">
+                    matTooltip="Eliminar Usuario" aria-label="Eliminar usuario">
                     <span class="material-symbols-outlined">delete</span>
                   </button>
                 </td>
               </tr>
               } @empty {
               <tr>
-                <td colspan="5" class="empty-state-cell">
-                  <div class="empty-state" style="padding: 2rem;">
-                    <span class="material-symbols-outlined empty-icon"
-                      style="font-size: 2rem; color: #cbd5e1;">group_off</span>
-                    <p style="margin-top: 0.5rem; color: #64748b;">No hay usuarios cargados o disponibles.</p>
+                <td colspan="3" class="empty-state-cell">
+                  <div class="empty-state" style="padding: 1.5rem;">
+                    <span class="material-symbols-outlined empty-icon">group_off</span>
+                    <p>No hay otros usuarios registrados.</p>
                   </div>
                 </td>
               </tr>
@@ -674,32 +955,77 @@
             </tbody>
           </table>
         </div>
+
+        <div class="mobile-user-cards-list mobile-only">
+          @for (user of usersList; track user.usuarioID || user.email) {
+          <div class="mobile-user-card">
+            <div class="mobile-user-card-header">
+              <div class="user-cell-info">
+                <div class="mini-avatar font-mono" [ngClass]="user.role === 'admin' ? 'admin-avatar' : 'user-avatar'">
+                  {{ (user.nombre || user.email).charAt(0).toUpperCase() }}
+                </div>
+                <div class="user-text-meta">
+                  <strong class="user-name">{{ user.nombre }}</strong>
+                  <span class="user-email-text">{{ user.email }}</span>
+                </div>
+              </div>
+              <button type="button" class="action-btn delete" (click)="deleteUser(user)" aria-label="Eliminar usuario">
+                <span class="material-symbols-outlined">delete</span>
+              </button>
+            </div>
+            <div class="mobile-user-card-footer">
+              <span class="status-pill"
+                [ngClass]="user.role === 'admin' ? 'status-badge-operativo' : 'status-badge-neutral'">
+                <span class="status-dot"></span>
+                {{ user.role === 'admin' ? 'Administrador' : 'Consulta' }}
+              </span>
+            </div>
+          </div>
+          } @empty {
+          <div class="empty-state" style="padding: 1.5rem;">
+            <span class="material-symbols-outlined empty-icon">group_off</span>
+            <p>No hay otros usuarios registrados.</p>
+          </div>
+          }
+        </div>
       </div>
     </div>
   </div>
 </div>
 }
 
-
 @if (showDetailModal && selectedEquipment) {
-<div class="modal-backdrop" (click)="closeDetailModal()">
-  <div class="modal-card" (click)="$event.stopPropagation()">
+<div class="modal-backdrop" (click)="closeDetailModal()" role="dialog" aria-modal="true"
+  aria-labelledby="detailEquipTitle">
+  <div class="modal-card modal-detail" (click)="$event.stopPropagation()">
+    <div class="modal-drag-handle" aria-hidden="true"></div>
+
     <div class="modal-header">
       <div class="modal-title-group">
-        <span class="material-symbols-outlined modal-header-icon">developer_board</span>
-        <div>
-          <h3>Ficha del Activo</h3>
-          <p>Información detallada registrada en el sistema de inventario</p>
+        <div class="modal-kicker-tag">
+          <span class="ember-dot"></span>
+          <span>FICHA TÉCNICA DE HARDWARE</span>
         </div>
+        <h3 id="detailEquipTitle">Ficha Técnica del Activo</h3>
+        <p>Especificaciones detalladas, localización física y estado operativo</p>
       </div>
-      <button type="button" class="modal-close-btn" (click)="closeDetailModal()">✕</button>
+      <button type="button" class="modal-close-btn" (click)="closeDetailModal()" aria-label="Cerrar ficha">✕</button>
     </div>
 
-    <div class="detail-body">
+    <div class="modal-scroll-body detail-body">
       <div class="detail-hero">
         <div class="detail-sku-box">
-          <span class="sku-label">CÓDIGO SKU</span>
-          <h2 class="sku-large">{{ selectedEquipment.codigoSKU }}</h2>
+          <div class="sku-meta-tag">
+            <span class="material-symbols-outlined icon-small">qr_code_2</span>
+            <span>CÓDIGO SKU</span>
+          </div>
+          <div class="sku-large-row">
+            <h2 class="sku-large font-mono">{{ selectedEquipment.codigoSKU }}</h2>
+            <button type="button" class="copy-sku-btn" (click)="copySku(selectedEquipment.codigoSKU)"
+              title="Copiar SKU al portapapeles" aria-label="Copiar SKU">
+              <span class="material-symbols-outlined">content_copy</span>
+            </button>
+          </div>
         </div>
         <div class="detail-status-box">
           <span class="status-pill large" [ngClass]="getStatusBadgeClass(selectedEquipment.status)">
@@ -710,54 +1036,72 @@
       </div>
 
       <div class="detail-grid">
-        <div class="detail-item">
-          <span class="detail-label">Nombre / Modelo</span>
+        <div class="detail-item-card">
+          <div class="detail-card-header">
+            <span class="material-symbols-outlined detail-card-icon">devices</span>
+            <span class="detail-label">Nombre / Modelo</span>
+          </div>
           <span class="detail-val bold">{{ selectedEquipment.nombreProducto }}</span>
         </div>
 
-        <div class="detail-item">
-          <span class="detail-label">Categoría</span>
+        <div class="detail-item-card">
+          <div class="detail-card-header">
+            <span class="material-symbols-outlined detail-card-icon">category</span>
+            <span class="detail-label">Categoría</span>
+          </div>
           <span class="detail-val chip">{{ getCategoryName(selectedEquipment.categoriaID) }}</span>
         </div>
 
-        <div class="detail-item">
-          <span class="detail-label">Ubicación Física</span>
+        <div class="detail-item-card">
+          <div class="detail-card-header">
+            <span class="material-symbols-outlined detail-card-icon text-blue">place</span>
+            <span class="detail-label">Ubicación Asignada</span>
+          </div>
           <span class="detail-val">
-            <span class="material-symbols-outlined icon-small text-blue">place</span>
-            {{ selectedEquipment.location || 'Sin ubicación' }}
+            {{ selectedEquipment.location || 'Sin ubicación específica' }}
           </span>
         </div>
 
-        <div class="detail-item">
-          <span class="detail-label">Stock Actual</span>
-          <span class="detail-val mono">{{ selectedEquipment.stockActual }}</span>
+        <div class="detail-item-card">
+          <div class="detail-card-header">
+            <span class="material-symbols-outlined detail-card-icon">inventory_2</span>
+            <span class="detail-label">Stock en Inventario</span>
+          </div>
+          <span class="detail-val mono font-mono">{{ selectedEquipment.stockActual }} unidades</span>
         </div>
 
-        <div class="detail-item full-width">
-          <span class="detail-label">Descripción Técnica & Especificaciones</span>
+        <div class="detail-item-card full-width">
+          <div class="detail-card-header">
+            <span class="material-symbols-outlined detail-card-icon">notes</span>
+            <span class="detail-label">Descripción Técnica & Configuración</span>
+          </div>
           <div class="detail-desc-box">
-            {{ selectedEquipment.descripcion }}
+            {{ selectedEquipment.descripcion || 'Sin descripción técnica adicional registrada.' }}
           </div>
         </div>
 
-        <div class="detail-item">
-          <span class="detail-label">Última Actualización</span>
-          <span class="detail-val">{{ selectedEquipment.fechaActualizacion }}</span>
+        <div class="detail-item-card full-width">
+          <div class="detail-card-header">
+            <span class="material-symbols-outlined detail-card-icon">schedule</span>
+            <span class="detail-label">Fecha de Registro / Actualización</span>
+          </div>
+          <span class="detail-val text-muted">{{ selectedEquipment.fechaActualizacion | date:'dd/MM/yyyy, hh:mm a'
+            }}</span>
         </div>
       </div>
+    </div>
 
-      <div class="modal-actions" style="margin-top: 1.5rem;">
-        @if (authService.isAdmin()) {
-        <button type="button" class="btn-submit"
-          (click)="openEditEquipmentModal(selectedEquipment); closeDetailModal()">
-          <span class="material-symbols-outlined icon-small">edit</span>
-          Modificar este Equipo
-        </button>
-        }
-        <button type="button" class="btn-cancel" (click)="closeDetailModal()">
-          Cerrar Ficha
-        </button>
-      </div>
+    <div class="modal-actions">
+      @if (authService.isAdmin()) {
+      <button type="button" class="btn-submit" (click)="openEditEquipmentModal(selectedEquipment); closeDetailModal()">
+        <span class="material-symbols-outlined icon-small">edit</span>
+        <span>Editar este Equipo</span>
+      </button>
+      }
+      <button type="button" class="btn-cancel" (click)="closeDetailModal()">
+        <span class="material-symbols-outlined icon-small">close</span>
+        <span>Cerrar</span>
+      </button>
     </div>
   </div>
 </div>
