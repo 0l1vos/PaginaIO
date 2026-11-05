@@ -33,6 +33,7 @@ Chart.register(...registerables);
 
 import { AuthService, UserRole } from '../../services/auth.service';
 import { InventoryService, Equipment, EquipmentStatus } from '../../services/inventory.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-home',
@@ -184,8 +185,8 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
     if (this.isBrowser) {
       this.checkScreenSize();
       window.addEventListener('resize', this.onResizeBound);
+      this.inventoryService.loadProductos();
     }
-    this.inventoryService.loadProductos();
   }
 
   ngAfterViewInit(): void {
@@ -493,7 +494,7 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
   }
 
   loadUsers(): void {
-    this.http.get<any[]>('http://localhost:5138/api/sesion/usuarios').subscribe({
+    this.http.get<any[]>(`${environment.apiUrl}/sesion/usuarios`).subscribe({
       next: (res) => {
         this.usersList = res;
         this.cdr.detectChanges();
@@ -522,7 +523,7 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
       rolID: this.newUserForm.role === 'admin' ? 1 : 2
     };
 
-    this.http.post('http://localhost:5138/api/sesion/registro', payload).subscribe({
+    this.http.post(`${environment.apiUrl}/sesion/registro`, payload).subscribe({
       next: () => {
         this.showToast(`Usuario "${this.newUserForm.name}" registrado con éxito.`, 'success');
         this.newUserForm = { name: '', email: '', password: '', role: 'user' };
@@ -544,7 +545,7 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
     }
 
     if (confirm(`¿Estás seguro de eliminar al usuario "${user.nombre}"?`)) {
-      this.http.delete(`http://localhost:5138/api/sesion/usuarios/${user.usuarioID}`).subscribe({
+      this.http.delete(`${environment.apiUrl}/sesion/usuarios/${user.usuarioID}`).subscribe({
         next: () => {
           this.showToast(`Usuario "${user.nombre}" eliminado correctamente.`, 'success');
           this.loadUsers();

@@ -2629,11 +2629,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\olivo\\Desktop\\Ing.Software Avanzada\\SistemaInventarioAPI\\SistemaInventarioAPI.csproj",
+      "projectUniqueName": "c:\\Users\\olivo\\Desktop\\Ing.Software Avanzada\\SistemaInventarioAPI\\SistemaInventarioAPI.csproj",
       "projectName": "SistemaInventarioAPI",
-      "projectPath": "C:\\Users\\olivo\\Desktop\\Ing.Software Avanzada\\SistemaInventarioAPI\\SistemaInventarioAPI.csproj",
+      "projectPath": "c:\\Users\\olivo\\Desktop\\Ing.Software Avanzada\\SistemaInventarioAPI\\SistemaInventarioAPI.csproj",
       "packagesPath": "C:\\Users\\olivo\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\olivo\\Desktop\\Ing.Software Avanzada\\SistemaInventarioAPI\\obj\\",
+      "outputPath": "c:\\Users\\olivo\\Desktop\\Ing.Software Avanzada\\SistemaInventarioAPI\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\olivo\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -3129,5 +3129,13 @@
         }
       }
     }
-  }
+  },
+  "logs": [
+    {
+      "code": "NU1900",
+      "level": "Warning",
+      "warningLevel": 1,
+      "message": "Error al obtener los datos de vulnerabilidad del paquete: No se puede cargar el índice de servicio para el origen https://api.nuget.org/v3/index.json."
+    }
+  ]
 }

@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\olivo\\Desktop\\Ing.Software Avanzada\\SistemaInventarioAPI\\SistemaInventarioAPI.csproj": {}
+    "c:\\Users\\olivo\\Desktop\\Ing.Software Avanzada\\SistemaInventarioAPI\\SistemaInventarioAPI.csproj": {}
   },
   "projects": {
-    "C:\\Users\\olivo\\Desktop\\Ing.Software Avanzada\\SistemaInventarioAPI\\SistemaInventarioAPI.csproj": {
+    "c:\\Users\\olivo\\Desktop\\Ing.Software Avanzada\\SistemaInventarioAPI\\SistemaInventarioAPI.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\olivo\\Desktop\\Ing.Software Avanzada\\SistemaInventarioAPI\\SistemaInventarioAPI.csproj",
+        "projectUniqueName": "c:\\Users\\olivo\\Desktop\\Ing.Software Avanzada\\SistemaInventarioAPI\\SistemaInventarioAPI.csproj",
         "projectName": "SistemaInventarioAPI",
-        "projectPath": "C:\\Users\\olivo\\Desktop\\Ing.Software Avanzada\\SistemaInventarioAPI\\SistemaInventarioAPI.csproj",
+        "projectPath": "c:\\Users\\olivo\\Desktop\\Ing.Software Avanzada\\SistemaInventarioAPI\\SistemaInventarioAPI.csproj",
         "packagesPath": "C:\\Users\\olivo\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\olivo\\Desktop\\Ing.Software Avanzada\\SistemaInventarioAPI\\obj\\",
+        "outputPath": "c:\\Users\\olivo\\Desktop\\Ing.Software Avanzada\\SistemaInventarioAPI\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\olivo\\AppData\\Roaming\\NuGet\\NuGet.Config"

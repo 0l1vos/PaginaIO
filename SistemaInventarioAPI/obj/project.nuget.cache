@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "2qNeUJeId24=",
+  "dgSpecHash": "Oh/DBa3ccK0=",
   "success": true,
-  "projectFilePath": "C:\\Users\\olivo\\Desktop\\Ing.Software Avanzada\\SistemaInventarioAPI\\SistemaInventarioAPI.csproj",
+  "projectFilePath": "c:\\Users\\olivo\\Desktop\\Ing.Software Avanzada\\SistemaInventarioAPI\\SistemaInventarioAPI.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\olivo\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
     "C:\\Users\\olivo\\.nuget\\packages\\microsoft.aspnetcore.authentication.jwtbearer\\10.0.13\\microsoft.aspnetcore.authentication.jwtbearer.10.0.13.nupkg.sha512",
@@ -43,5 +43,15 @@
     "C:\\Users\\olivo\\.nuget\\packages\\system.composition.typedparts\\9.0.0\\system.composition.typedparts.9.0.0.nupkg.sha512",
     "C:\\Users\\olivo\\.nuget\\packages\\system.identitymodel.tokens.jwt\\8.19.2\\system.identitymodel.tokens.jwt.8.19.2.nupkg.sha512"
   ],
-  "logs": []
+  "logs": [
+    {
+      "code": "NU1900",
+      "level": "Warning",
+      "message": "Error al obtener los datos de vulnerabilidad del paquete: No se puede cargar el índice de servicio para el origen https://api.nuget.org/v3/index.json.",
+      "projectPath": "c:\\Users\\olivo\\Desktop\\Ing.Software Avanzada\\SistemaInventarioAPI\\SistemaInventarioAPI.csproj",
+      "warningLevel": 1,
+      "filePath": "c:\\Users\\olivo\\Desktop\\Ing.Software Avanzada\\SistemaInventarioAPI\\SistemaInventarioAPI.csproj",
+      "targetGraphs": []
+    }
+  ]
 }

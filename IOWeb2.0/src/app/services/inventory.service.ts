@@ -1,6 +1,7 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap, catchError, of } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export type EquipmentStatus = 'Operativo' | 'En Mantenimiento' | 'De Baja';
 
@@ -20,7 +21,7 @@ export interface Equipment {
   providedIn: 'root'
 })
 export class InventoryService {
-  private apiUrl = 'http://localhost:5138/api/productos';
+  private apiUrl = `${environment.apiUrl}/productos`;
 
   constructor(private http: HttpClient) { }
 
