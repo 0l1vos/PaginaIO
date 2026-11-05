@@ -1,16 +1,19 @@
 <div class="login-container">
-  <div class="login-card">
+  <div class="login-card" #loginCardRef>
+    <div class="editorial-loader-bar" #loaderBarRef [class.active]="loading"></div>
 
     <div class="form-section">
       <div class="header">
         <div class="brand-pill">
+          <span class="ember-dot"></span>
+          <span class="brand-kicker">Inventario de Activos</span>
         </div>
         <h1>Control de Inventario</h1>
-        <p>Ingresa tus credenciales para acceder</p>
+        <p>Ingresa tus credenciales para acceder al sistema</p>
       </div>
 
       @if (errorMessage) {
-      <div class="error-alert" role="alert">
+      <div class="error-alert" role="alert" #errorAlertRef>
         <span class="material-symbols-outlined error-icon">error</span>
         <span>{{ errorMessage }}</span>
       </div>
@@ -23,8 +26,9 @@
             <span class="icon" aria-hidden="true">
               <span class="material-symbols-outlined">alternate_email</span>
             </span>
-            <input id="email" type="email" name="email" [(ngModel)]="email" required autocomplete="email"
-              placeholder="usuario@gmail.com" [disabled]="loading" maxlength="30" />
+            <input id="email" type="email" name="email" [(ngModel)]="email" required autocomplete="username"
+              autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="usuario@gmail.com"
+              [disabled]="loading" maxlength="40" />
           </div>
         </div>
 
@@ -37,8 +41,9 @@
               <span class="material-symbols-outlined">lock</span>
             </span>
             <input id="password" [type]="showPassword ? 'text' : 'password'" name="password" [(ngModel)]="password"
-              required autocomplete="current-password" placeholder="••••••••••••" [disabled]="loading" maxlength="10" />
+              required autocomplete="current-password" placeholder="••••••••••••" [disabled]="loading" maxlength="40" />
             <button type="button" class="toggle-password" (click)="togglePasswordVisibility()"
+              [attr.aria-pressed]="showPassword"
               [attr.aria-label]="showPassword ? 'Ocultar contraseña' : 'Ver contraseña'">
               <span class="material-symbols-outlined">
                 {{ showPassword ? 'visibility_off' : 'visibility' }}
@@ -47,10 +52,16 @@
           </div>
         </div>
 
-        <button type="submit" class="submit-btn" [disabled]="loading || !email || !password">
-          @if (loading) {
-          <span class="btn-spinner" aria-hidden="true"></span>
-          <span>Verificando credenciales...</span>
+        <button type="submit" class="submit-btn" [disabled]="loading" [class.is-loading]="loading"
+          [class.is-success]="isSuccess">
+          @if (isSuccess) {
+          <span class="material-symbols-outlined btn-icon-check">verified</span>
+          <span class="font-mono">ACCESO CONCEDIDO</span>
+          } @else if (loading) {
+          <span class="loading-state-box">
+            <span class="btn-spinner" aria-hidden="true"></span>
+            <span class="font-mono loading-ticker">VERIFICANDO CREDENCIALES...</span>
+          </span>
           } @else {
           <span>Acceder</span>
           <span class="material-symbols-outlined btn-arrow">arrow_forward</span>
@@ -63,6 +74,7 @@
         <span>Autenticación protegida con JWT Bearer & Rate Limiting</span>
       </div>
     </div>
+
 
 
   </div>
