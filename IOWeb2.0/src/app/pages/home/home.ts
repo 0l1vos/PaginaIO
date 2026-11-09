@@ -33,6 +33,7 @@ Chart.register(...registerables);
 
 import { AuthService, UserRole } from '../../services/auth.service';
 import { InventoryService, Equipment, EquipmentStatus } from '../../services/inventory.service';
+import * as QRCode from 'qrcode';
 
 @Component({
   selector: 'app-home',
@@ -96,6 +97,11 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
   showEditEquipmentModal = false;
   showUserManagementModal = false;
   showDetailModal = false;
+  showQrModal = false;
+  qrEquipment: Equipment | null = null;
+  qrDataUrl = '';
+  qrMode: 'sku' | 'json' | 'url' = 'sku';
+  qrLoading = false;
 
   selectedEquipment: Equipment | null = null;
 
@@ -150,7 +156,7 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
     };
 
   usersList: any[] = [];
-  feedbackMessage: { text: string; type: 'success' | 'error' } | null = null;
+  feedbackMessage: { text: string; type: 'success' | 'error' | 'info' } | null = null;
 
   readonly categoryOption: string[] = [
     'Servidores',
@@ -301,7 +307,9 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('window:keydown.escape')
   handleEscapeKey(): void {
-    if (this.showDetailModal) {
+    if (this.showQrModal) {
+      this.closeQrModal();
+    } else if (this.showDetailModal) {
       this.closeDetailModal();
     } else if (this.showAddEquipmentModal) {
       this.closeAddEquipmentModal();
@@ -324,6 +332,7 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
 
   setStatusFilter(status: EquipmentStatus | 'Todos'): void {
     this.selectedStatusFilter = status;
+    this.currentPage = 1;
   }
 
   clearFilters(): void {
@@ -331,6 +340,7 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
     this.selectedStatusFilter = 'Todos';
     this.selectedCategoryFilter = 'Todas';
     this.sortBy = 'recent';
+    this.currentPage = 1;
   }
 
   openEquipmentDetail(item: Equipment): void {
@@ -432,6 +442,199 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
 
   closeEditEquipmentModal(): void {
     this.showEditEquipmentModal = false;
+  }
+
+  currentPage = 1;
+  pageSize = 10;
+  readonly pageSizeOptions = [5, 10, 25, 50, 100];
+  jumpToPageInput: number | null = null;
+
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.filteredEquipments.length / this.pageSize));
+  }
+
+  get pagesList(): (number | string)[] {
+    const total = this.totalPages;
+    const current = this.currentPage;
+
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+
+    if (current <= 4) {
+      return [1, 2, 3, 4, 5, '...', total];
+    }
+
+    if (current >= total - 3) {
+      return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+    }
+
+    return [1, '...', current - 1, current, current + 1, '...', total];
+  }
+
+  // Slice de elementos reactivos que se renderizan en la página activa
+  get paginatedEquipments(): Equipment[] {
+    if (this.currentPage > this.totalPages) {
+      this.currentPage = this.totalPages;
+    }
+    const startIndex = (this.currentPage - 1) * this.pageSize;
+    return this.filteredEquipments.slice(startIndex, startIndex + this.pageSize);
+  }
+
+
+  get startIndexDisplay(): number {
+    if (this.filteredEquipments.length === 0) return 0;
+    return (this.currentPage - 1) * this.pageSize + 1;
+  }
+
+  get endIndexDisplay(): number {
+    return Math.min(this.currentPage * this.pageSize, this.filteredEquipments.length);
+  }
+
+  // Métodos de control de navegación con scroll suave
+  goToPage(page: number): void {
+    if (page >= 1 && page <= this.totalPages && page !== this.currentPage) {
+      this.currentPage = page;
+      this.scrollToTableTop();
+    }
+  }
+
+  nextPage(): void {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+      this.scrollToTableTop();
+    }
+  }
+
+  prevPage(): void {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+      this.scrollToTableTop();
+    }
+  }
+
+  onPageSizeChange(): void {
+    this.currentPage = 1;
+    this.scrollToTableTop();
+  }
+
+  onFilterChange(): void {
+    this.currentPage = 1;
+  }
+
+  applyJumpPage(): void {
+    if (this.jumpToPageInput && this.jumpToPageInput >= 1 && this.jumpToPageInput <= this.totalPages) {
+      this.goToPage(this.jumpToPageInput);
+      this.jumpToPageInput = null;
+    } else {
+      this.showToast(`Por favor ingresa un número de página válido entre 1 y ${this.totalPages}.`, 'info');
+    }
+  }
+
+  private scrollToTableTop(): void {
+    if (!this.isBrowser) return;
+    const tableEl = document.getElementById('catalogTableCard');
+    if (tableEl) {
+      tableEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  async openQrModal(equipment: Equipment, mode: 'sku' | 'json' | 'url' = 'sku'): Promise<void> {
+    if (!equipment) return;
+    this.qrEquipment = equipment;
+    this.qrMode = mode;
+    this.showQrModal = true;
+    await this.generateQrDataUrl();
+  }
+
+  closeQrModal(): void {
+    this.showQrModal = false;
+    this.qrEquipment = null;
+    this.qrDataUrl = '';
+  }
+
+  async changeQrMode(mode: 'sku' | 'json' | 'url'): Promise<void> {
+    if (this.qrMode === mode) return;
+    this.qrMode = mode;
+    await this.generateQrDataUrl();
+  }
+
+  private async generateQrDataUrl(): Promise<void> {
+    if (!this.qrEquipment) return;
+    this.qrLoading = true;
+
+    let payload = '';
+    if (this.qrMode === 'sku') {
+      payload = this.qrEquipment.codigoSKU;
+    } else if (this.qrMode === 'json') {
+      payload = JSON.stringify({
+        sku: this.qrEquipment.codigoSKU,
+        nombre: this.qrEquipment.nombreProducto,
+        categoria: this.getCategoryName(this.qrEquipment.categoriaID),
+        ubicacion: this.qrEquipment.location || 'Almacén Central',
+        estado: this.qrEquipment.status,
+        stock: this.qrEquipment.stockActual,
+        actualizado: this.qrEquipment.fechaActualizacion
+      }, null, 2);
+    } else if (this.qrMode === 'url') {
+      payload = `https://inventarioio.vercel.app/`;
+    }
+
+    try {
+      this.qrDataUrl = await QRCode.toDataURL(payload, {
+        width: 320,
+        margin: 2,
+        color: {
+          dark: '#202020',
+          light: '#ffffff'
+        },
+        errorCorrectionLevel: 'M'
+      });
+    } catch (err) {
+      console.error('Error al generar código QR', err);
+      this.showToast('No se pudo generar la matriz QR.', 'error');
+    } finally {
+      this.qrLoading = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  downloadQrImage(): void {
+    if (!this.qrDataUrl || !this.qrEquipment || !this.isBrowser) return;
+
+    const link = document.createElement('a');
+    link.href = this.qrDataUrl;
+    link.download = `QR-${this.qrEquipment.codigoSKU}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    this.showToast(`Código QR descargado: ${this.qrEquipment.codigoSKU}`, 'success');
+  }
+
+  printQrTag(): void {
+    if (!this.isBrowser) return;
+    window.print();
+  }
+
+  async copyQrImage(): Promise<void> {
+    if (!this.qrDataUrl || !this.qrEquipment || !this.isBrowser) return;
+
+    try {
+      if (navigator.clipboard && (window as any).ClipboardItem) {
+        const res = await fetch(this.qrDataUrl);
+        const blob = await res.blob();
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob })
+        ]);
+        this.showToast('Imagen del código QR copiada al portapapeles.', 'success');
+      } else {
+        await navigator.clipboard.writeText(this.qrEquipment.codigoSKU);
+        this.showToast(`SKU ${this.qrEquipment.codigoSKU} copiado al portapapeles.`, 'info');
+      }
+    } catch {
+      await navigator.clipboard.writeText(this.qrEquipment.codigoSKU);
+      this.showToast(`SKU ${this.qrEquipment.codigoSKU} copiado al portapapeles.`, 'info');
+    }
   }
 
   submitEditEquipment(): void {
@@ -564,7 +767,7 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
     this.router.navigate(['/']);
   }
 
-  showToast(text: string, type: 'success' | 'error'): void {
+  showToast(text: string, type: 'success' | 'error' | 'info'): void {
     this.feedbackMessage = { text, type };
     setTimeout(() => {
       this.feedbackMessage = null;
@@ -596,6 +799,7 @@ export class Home implements OnInit, AfterViewInit, OnDestroy {
       this.showToast(`SKU: ${sku}`, 'success');
     }
   }
+
 
   private initCharts(): void {
     if (!this.isBrowser) return;

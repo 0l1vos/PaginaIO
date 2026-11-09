@@ -117,9 +117,10 @@
 
     @if (feedbackMessage) {
     <div class="toast-notification" [class.success]="feedbackMessage.type === 'success'"
-      [class.error]="feedbackMessage.type === 'error'" role="status" aria-live="polite">
+      [class.error]="feedbackMessage.type === 'error'" [class.info]="feedbackMessage.type === 'info'" role="status"
+      aria-live="polite">
       <span class="material-symbols-outlined">
-        {{ feedbackMessage.type === 'success' ? 'check_circle' : 'error' }}
+        {{ feedbackMessage.type === 'success' ? 'check_circle' : feedbackMessage.type === 'info' ? 'info' : 'error' }}
       </span>
       <span>{{ feedbackMessage.text }}</span>
       <button type="button" class="toast-close" (click)="feedbackMessage = null"
@@ -249,7 +250,7 @@
 
 
       <section class="inventory-table-section">
-        <div class="data-table-card">
+        <div class="data-table-card" id="catalogTableCard">
 
           <div class="table-card-header">
             <div class="header-meta">
@@ -288,10 +289,11 @@
           <div class="table-toolbar">
             <div class="search-box">
               <span class="material-symbols-outlined search-icon" aria-hidden="true">search</span>
-              <input type="text" [(ngModel)]="searchTerm" placeholder="Buscar por SKU, modelo, descripción..."
-                aria-label="Buscar en inventario" />
+              <input type="text" [(ngModel)]="searchTerm" (ngModelChange)="onFilterChange()"
+                placeholder="Buscar por SKU, modelo, descripción..." aria-label="Buscar en inventario" />
               @if (searchTerm) {
-              <button type="button" class="clear-search-btn" (click)="searchTerm = ''" aria-label="Limpiar búsqueda">
+              <button type="button" class="clear-search-btn" (click)="searchTerm = ''; onFilterChange()"
+                aria-label="Limpiar búsqueda">
                 <span class="material-symbols-outlined">close</span>
               </button>
               }
@@ -300,7 +302,8 @@
             <div class="filter-controls-group">
               <div class="dropdown-filter">
                 <span class="material-symbols-outlined dropdown-icon">category</span>
-                <select [(ngModel)]="selectedCategoryFilter" aria-label="Filtrar por categoría">
+                <select [(ngModel)]="selectedCategoryFilter" (ngModelChange)="onFilterChange()"
+                  aria-label="Filtrar por categoría">
                   <option value="Todas">Todas las Categorías</option>
                   @for (cat of categoryOption; track cat) {
                   <option [value]="cat">{{ cat }}</option>
@@ -312,7 +315,7 @@
               <!-- Ordenamiento con selector -->
               <div class="dropdown-filter">
                 <span class="material-symbols-outlined dropdown-icon">sort</span>
-                <select [(ngModel)]="sortBy" aria-label="Ordenar resultados">
+                <select [(ngModel)]="sortBy" (ngModelChange)="onFilterChange()" aria-label="Ordenar resultados">
                   <option value="recent">Más Recientes</option>
                   <option value="sku-asc">SKU (A - Z)</option>
                   <option value="sku-desc">SKU (Z - A)</option>
@@ -423,7 +426,7 @@
                 </tr>
               </thead>
               <tbody>
-                @for (item of filteredEquipments; track item.productoID) {
+                @for (item of paginatedEquipments; track item.productoID) {
                 <tr class="table-row-hover">
                   <td>
                     <div class="sku-cell" (click)="openEquipmentDetail(item)" matTooltip="Ver Ficha Técnica"
@@ -479,6 +482,11 @@
                         <span class="material-symbols-outlined">visibility</span>
                       </button>
 
+                      <button type="button" class="action-btn qr" (click)="openQrModal(item)"
+                        matTooltip="Generar Código QR" aria-label="Generar Código QR">
+                        <span class="material-symbols-outlined">qr_code_2</span>
+                      </button>
+
                       @if (authService.isAdmin()) {
                       <button type="button" class="action-btn edit" (click)="openEditEquipmentModal(item)"
                         matTooltip="Editar" aria-label="Editar">
@@ -514,7 +522,7 @@
 
           @if (viewMode === 'cards') {
           <div class="cards-view-grid">
-            @for (item of filteredEquipments; track item.productoID) {
+            @for (item of paginatedEquipments; track item.productoID) {
             <article class="equipment-mobile-card">
               <div class="card-top-row">
                 <div class="sku-mobile-box">
@@ -549,7 +557,12 @@
               <div class="card-actions-row">
                 <button type="button" class="card-btn-view" (click)="openEquipmentDetail(item)">
                   <span class="material-symbols-outlined">visibility</span>
-                  <span>Ficha Técnica</span>
+                  <span>Ficha</span>
+                </button>
+
+                <button type="button" class="card-btn-qr" (click)="openQrModal(item)" title="Generar Código QR">
+                  <span class="material-symbols-outlined">qr_code_2</span>
+                  <span>QR</span>
                 </button>
 
                 @if (authService.isAdmin()) {
@@ -576,10 +589,78 @@
           }
 
           <div class="table-footer">
-            <span class="footer-count">
-              Mostrando <strong>{{ filteredEquipments.length }}</strong> de <strong>{{ inventoryService.totalEquipos()
-                }}</strong> equipos registrados
-            </span>
+            <div class="footer-left">
+              <span class="footer-count">
+                Mostrando <strong class="font-mono count-highlight">{{ startIndexDisplay }}-{{ endIndexDisplay
+                  }}</strong> de <strong class="font-mono count-highlight">{{ filteredEquipments.length }}</strong>
+                equipos
+                @if (filteredEquipments.length !== inventoryService.totalEquipos()) {
+                <span class="filtered-badge font-mono">(filtrados de {{ inventoryService.totalEquipos() }})</span>
+                }
+              </span>
+
+              <div class="page-size-selector">
+                <label for="pageSizeSelect">Filas:</label>
+                <div class="custom-select-wrapper">
+                  <select id="pageSizeSelect" [(ngModel)]="pageSize" (change)="onPageSizeChange()"
+                    aria-label="Elementos por página">
+                    @for (size of pageSizeOptions; track size) {
+                    <option [value]="size">{{ size }}</option>
+                    }
+                  </select>
+                  <span class="material-symbols-outlined select-arrow">expand_more</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="pagination-controls">
+              <button type="button" class="pagination-btn" (click)="goToPage(1)" [disabled]="currentPage === 1"
+                matTooltip="Primera página" aria-label="Primera página">
+                <span class="material-symbols-outlined">first_page</span>
+              </button>
+
+              <button type="button" class="pagination-btn" (click)="prevPage()" [disabled]="currentPage === 1"
+                matTooltip="Página anterior" aria-label="Página anterior">
+                <span class="material-symbols-outlined">chevron_left</span>
+              </button>
+
+              <div class="pagination-pages-list">
+                @for (pg of pagesList; track $index) {
+                @if (pg === '...') {
+                <span class="pagination-ellipsis font-mono">…</span>
+                } @else {
+                <button type="button" class="page-number-btn font-mono" [class.active]="currentPage === pg"
+                  (click)="goToPage(+pg)" [attr.aria-current]="currentPage === pg ? 'page' : null"
+                  [attr.aria-label]="'Ir a la página ' + pg">
+                  {{ pg }}
+                </button>
+                }
+                }
+              </div>
+
+              <button type="button" class="pagination-btn" (click)="nextPage()" [disabled]="currentPage === totalPages"
+                matTooltip="Página siguiente" aria-label="Página siguiente">
+                <span class="material-symbols-outlined">chevron_right</span>
+              </button>
+
+              <button type="button" class="pagination-btn" (click)="goToPage(totalPages)"
+                [disabled]="currentPage === totalPages" matTooltip="Última página" aria-label="Última página">
+                <span class="material-symbols-outlined">last_page</span>
+              </button>
+
+              @if (totalPages > 3) {
+              <div class="quick-jump-box">
+                <span class="jump-label font-mono">Pág:</span>
+                <input type="number" min="1" [max]="totalPages" [(ngModel)]="jumpToPageInput"
+                  (keydown.enter)="applyJumpPage()" class="jump-input font-mono" placeholder="#"
+                  aria-label="Número de página a saltar" />
+                <button type="button" class="jump-submit-btn font-mono" (click)="applyJumpPage()"
+                  matTooltip="Saltar a página">
+                  ↵
+                </button>
+              </div>
+              }
+            </div>
           </div>
         </div>
       </section>
@@ -1092,6 +1173,11 @@
     </div>
 
     <div class="modal-actions">
+      <button type="button" class="btn-qr-action" (click)="openQrModal(selectedEquipment)">
+        <span class="material-symbols-outlined icon-small">qr_code_2</span>
+        <span>Generar Código QR</span>
+      </button>
+
       @if (authService.isAdmin()) {
       <button type="button" class="btn-submit" (click)="openEditEquipmentModal(selectedEquipment); closeDetailModal()">
         <span class="material-symbols-outlined icon-small">edit</span>
@@ -1102,6 +1188,115 @@
         <span class="material-symbols-outlined icon-small">close</span>
         <span>Cerrar</span>
       </button>
+    </div>
+  </div>
+</div>
+}
+@if (showQrModal && qrEquipment) {
+<div class="modal-backdrop qr-print-backdrop" (click)="closeQrModal()" role="dialog" aria-modal="true" aria-labelledby="qrModalTitle">
+  <div class="modal-card modal-qr-dialog" (click)="$event.stopPropagation()">
+    <div class="modal-drag-handle" aria-hidden="true"></div>
+
+    <div class="modal-header">
+      <div class="modal-title-group">
+        <div class="modal-kicker-tag">
+          <span class="ember-dot"></span>
+          <span>ETIQUETA // CÓDIGO QR</span>
+        </div>
+        <h3 id="qrModalTitle">Etiqueta QR: {{ qrEquipment.codigoSKU }}</h3>
+        <p>Genera e imprime la identificación para inventario físico</p>
+      </div>
+      <button type="button" class="modal-close-btn" (click)="closeQrModal()" aria-label="Cerrar modal">✕</button>
+    </div>
+
+    <div class="modal-scroll-body qr-modal-body">
+      <div class="qr-mode-selector">
+        <button type="button" class="qr-mode-pill" [class.active]="qrMode === 'sku'" (click)="changeQrMode('sku')">
+          <span class="material-symbols-outlined mode-icon">barcode</span>
+          <span>Código SKU</span>
+        </button>
+        <button type="button" class="qr-mode-pill" [class.active]="qrMode === 'json'" (click)="changeQrMode('json')">
+          <span class="material-symbols-outlined mode-icon">data_object</span>
+          <span>Ficha JSON</span>
+        </button>
+        <button type="button" class="qr-mode-pill" [class.active]="qrMode === 'url'" (click)="changeQrMode('url')">
+          <span class="material-symbols-outlined mode-icon">link</span>
+          <span>Enlace Web</span>
+        </button>
+      </div>
+
+      <div class="asset-tag-card" id="printableAssetTag">
+        <div class="asset-tag-header">
+          <div class="tag-brand">
+            <span class="font-mono tag-brand-title">ESTADO</span>
+          </div>
+          <span class="status-pill small" [ngClass]="getStatusBadgeClass(qrEquipment.status)">
+            <span class="status-dot"></span>
+            {{ qrEquipment.status }}
+          </span>
+        </div>
+
+        <div class="asset-tag-qr-stage">
+          @if (qrLoading) {
+          <div class="qr-loading-spinner">
+            <span class="btn-spinner"></span>
+            <span class="font-mono text-sm">Generando matriz QR...</span>
+          </div>
+          } @else if (qrDataUrl) {
+          <div class="qr-image-wrapper">
+            <img [src]="qrDataUrl" [alt]="'Código QR para ' + qrEquipment.codigoSKU" class="qr-image" />
+          </div>
+          }
+        </div>
+
+        <div class="asset-tag-info">
+          <div class="tag-sku-row">
+            <span class="tag-label font-mono">SKU ID:</span>
+            <span class="tag-sku font-mono">{{ qrEquipment.codigoSKU }}</span>
+          </div>
+          <div class="tag-name-row">
+            <strong class="tag-name">{{ qrEquipment.nombreProducto }}</strong>
+          </div>
+          <div class="tag-meta-grid">
+            <div class="tag-meta-item">
+              <span class="meta-label">Categoría</span>
+              <span class="meta-val font-mono">{{ getCategoryName(qrEquipment.categoriaID) }}</span>
+            </div>
+            <div class="tag-meta-item">
+              <span class="meta-label">Ubicación</span>
+              <span class="meta-val">{{ qrEquipment.location || 'Almacén Central' }}</span>
+            </div>
+            <div class="tag-meta-item">
+              <span class="meta-label">Stock</span>
+              <span class="meta-val font-mono">{{ qrEquipment.stockActual }} un.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="asset-tag-footer font-mono">
+          <span>FORMATO: {{ qrMode.toUpperCase() }}</span>
+          <span>ID: #{{ qrEquipment.productoID }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn-submit" (click)="downloadQrImage()">
+        <span class="material-symbols-outlined icon-small">download</span>
+        <span>Descargar PNG</span>
+      </button>
+
+      <button type="button" class="btn-secondary" (click)="copyQrImage()">
+        <span class="material-symbols-outlined icon-small">content_copy</span>
+        <span>Copiar Imagen</span>
+      </button>
+
+      <button type="button" class="btn-secondary" (click)="printQrTag()">
+        <span class="material-symbols-outlined icon-small">print</span>
+        <span>Imprimir Etiqueta</span>
+      </button>
+
+
     </div>
   </div>
 </div>
