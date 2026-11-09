@@ -123,3 +123,21 @@ pre {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-slate);
 }
+/* ================= REGLAS GLOBALES DE IMPRESION (1 SOLA PAGINA) ================= */
+@media print {
+  @page {
+    size: auto;
+    margin: 8mm;
+  }
+
+  html,
+  body {
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    overflow: visible !important;
+  }
+}
